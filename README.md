@@ -8,6 +8,9 @@
 該編輯器的功能和界面參考xionghuaidong以C#(.Net)寫成的[微軟五筆碼表編輯器](https://gitee.com/gitwub/WubiTools)，在原本預計應有「安裝碼表」、「生成碼表」等功能，由於本人的拖延症，「安裝碼表」功能至今未完成。: (  
 雖然如此發佈有些倉促，但因為最近拖延症極度惡化+忙碌，預計今年無法完成剩下的一些代碼。再加上我已承諾過10月中旬會放出本程序，因此本編輯器的版本號暫定為0.1.1alpha，供各位試用其生成碼表功能，並在[此](https://github.com/Arthurmcarthur/MicrosoftCangjieTool)放出源碼。
 
+本軟件使用如下格式的碼表生成lex文件：
+UTF-8 without BOM文本編碼的碼表文件，左邊為倉頡編碼，右邊為漢字，一行一字，中間以製表符或半角空格分隔。如果您不確定，可以下載[這裏](https://raw.githubusercontent.com/Arthurmcarthur/MicrosoftCangjieTool/master/cj5_sample.txt)的示例碼表。
+
 ## 緣由
 
 微軟倉頡原廠碼表錯訛甚多，影響使用，有甚者為了使用微軟倉頡，死記硬背錯碼。為了方便使用者，寫出本程序。本程序免費使用，無意侵犯任何公司或人的著作權。
