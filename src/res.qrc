@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/qtres">
+        <file>hkscs.txt</file>
+        <file>cjico.icns</file>
+        <file>cjico.ico</file>
+    </qresource>
+</RCC>
