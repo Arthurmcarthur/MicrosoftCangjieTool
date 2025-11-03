@@ -83,7 +83,12 @@ int MSCJTable::installLexFileToSystemPath(bool isRestore) {
     if (batchFile.open(QFile::WriteOnly | QFile::Text)) {
         qDebug() << "打開了bat文件準備寫入";
         QTextStream batchFileStream(&batchFile);
-        batchFileStream.setCodec(QTextCodec::codecForLocale());
+        auto enc = QStringConverter::encodingForName("System");
+        if (enc.has_value()) {
+            batchFileStream.setEncoding(enc.value());
+        } else {
+            batchFileStream.setEncoding(QStringConverter::Utf8);
+        };
         batchFileStream << QString("@echo off\n");
         batchFileStream << QString("\n");
         batchFileStream << QString("takeown /f \"%1\"").arg(sysChtCJExtFilePathBefore2004);
@@ -131,7 +136,7 @@ int MSCJTable::loadTable(QString targetFilePath) {
         return MSCJTable::ExitCode::hkscsFileNotFound;
     }
     QTextStream hkscsFileStream(&hkscsFile);
-    hkscsFileStream.setCodec(QTextCodec::codecForName("UTF-8"));
+    hkscsFileStream.setEncoding(QStringConverter::Utf8);
 
 
     QFile codeChartFile(targetFilePath);
@@ -140,7 +145,7 @@ int MSCJTable::loadTable(QString targetFilePath) {
         return MSCJTable::ExitCode::codeChartNotFound;
     }
     QTextStream codeChartFileStream(&codeChartFile);
-    codeChartFileStream.setCodec(QTextCodec::codecForName("UTF-8"));
+    codeChartFileStream.setEncoding(QStringConverter::Utf8);
 
     if (!tempDir.isValid()) {
         std::cerr << "創建臨時文件夾失敗。" << std::endl;
@@ -158,7 +163,7 @@ int MSCJTable::loadTable(QString targetFilePath) {
     while (!codeChartFileStream.atEnd()) {
         ++m_counter;
         QString qCodeChartFileReadline = codeChartFileStream.readLine();
-        QStringList splitTempList = qCodeChartFileReadline.split(QRegExp("[\\t ]+"));
+        QStringList splitTempList = qCodeChartFileReadline.split(QRegularExpression("[\\t ]+"));
         if (splitTempList.length() != 2) {
             std::cerr << "碼表格式可能有誤" << std::endl;
             return MSCJTable::ExitCode::codeChartFormatError;

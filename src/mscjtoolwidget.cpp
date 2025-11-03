@@ -87,10 +87,10 @@ void MSCJToolWidget::fileButtonPressed() {
 
 void MSCJToolWidget::encodeWithFileName() {
     disableButtons(true);
-    QRegExp lexRegex("^.+\\.lex$", Qt::CaseInsensitive);
-    QRegExpValidator lexRegexValidator(lexRegex, 0);
-    QRegExp txtRegex("^.+\\.txt$", Qt::CaseInsensitive);
-    QRegExpValidator txtRegexValidator(txtRegex, 0);
+    QRegularExpression lexRegex("^.+\\.lex$", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionValidator lexRegexValidator(lexRegex, nullptr);
+    QRegularExpression txtRegex("^.+\\.txt$", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionValidator txtRegexValidator(txtRegex, 0);
     int pos = 0;
     QString targetStr = codeChartFilePathLineEdit->text();
     if (lexRegexValidator.validate(targetStr, pos) == QValidator::Acceptable) {
@@ -103,7 +103,9 @@ void MSCJToolWidget::encodeWithFileName() {
         disableButtons(false);
         return;
     }
-    QFuture<int> future = QtConcurrent::run(mscjTable, &MSCJTable::baker, codeChartFilePathLineEdit->text());
+    QFuture<int> future = QtConcurrent::run([=]() {
+        return mscjTable->baker(codeChartFilePathLineEdit->text());
+    });
     while (!future.isFinished()) {
         QApplication::processEvents(QEventLoop::AllEvents, 100);
     }

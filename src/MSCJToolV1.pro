@@ -1,3 +1,4 @@
+QT += core gui widgets core5compat
 QT       += core gui
 QT       += concurrent
 

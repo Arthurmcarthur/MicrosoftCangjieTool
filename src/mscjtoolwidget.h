@@ -11,7 +11,9 @@
 #include <QProgressBar>
 #include <QGridLayout>
 #include <QLabel>
-#include <QRegExpValidator>
+#include <QRegularExpressionValidator>
+#include <QRegularExpression>
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MSCJToolWidget; }

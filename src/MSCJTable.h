@@ -18,6 +18,8 @@
 #include <QtConcurrent>
 #include <QFuture>
 #include <QFileInfo>
+#include <QStringConverter>
+
 
 class MSCJTable : public QObject
 {
