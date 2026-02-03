@@ -51,30 +51,33 @@ void MSCJKanji::setKanjiBlock(enum MSCJKanji::MSCJCharacterset kanjiBlock) {
 
 unsigned MSCJKanji::kanjiFromUTF8ToOrd() {
     unsigned unicodeVal;
-    const char* charPtr = m_kanjiValue.c_str();
+    const unsigned char* charPtr = (const unsigned char*)m_kanjiValue.c_str();
     int charNum;
-    if ((((int) charPtr[0]) & 0xF0) == 0xF0){
-        unicodeVal = ((((unsigned int) charPtr[0]) & 0x07) << 18);
+
+    if ((charPtr[0] & 0xF8) == 0xF0) {
+        unicodeVal = (charPtr[0] & 0x07) << 18;
         charNum = 4;
     }
-    else if((((int) charPtr[0]) & 0xE0) == 0xE0 ){
-        unicodeVal = ((((unsigned int) charPtr[0]) & 0x0F) << 12);
+    else if ((charPtr[0] & 0xF0) == 0xE0) {
+        unicodeVal = (charPtr[0] & 0x0F) << 12;
         charNum = 3;
     }
-    else if((((int) charPtr[0]) & 0xC0) == 0xE0){
-        unicodeVal = ((((unsigned int) charPtr[0]) & 0x1F) << 6);
+    else if ((charPtr[0] & 0xE0) == 0xC0) {
+        unicodeVal = (charPtr[0] & 0x1F) << 6;
         charNum = 2;
     }
-    else{
-        unicodeVal = ((((unsigned int) charPtr[0]) & 0x7F));
+    else {
+        unicodeVal = charPtr[0] & 0x7F;
         charNum = 1;
     }
-    for (int counter = 1; counter < charNum; ++counter){
-        int offset = (charNum  - counter - 1) * 6;
-        unicodeVal += ((((unsigned int) charPtr[counter]) & 0x3F) << offset);
+
+    for (int counter = 1; counter < charNum; ++counter) {
+        int offset = (charNum - counter - 1) * 6;
+        unicodeVal |= ((charPtr[counter] & 0x3F) << offset); // 使用 |= 比較安全
     }
     return unicodeVal;
 }
+
 
 bool MSCJKanji::isBMP() {
     unsigned ord = this -> kanjiFromUTF8ToOrd();
