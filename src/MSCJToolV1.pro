@@ -50,3 +50,5 @@ RESOURCES += \
 
 RC_ICONS = cjico.ico
 ICON = cjico.icns
+
+QMAKE_APPLE_DEVICE_ARCHS = arm64 x86_64
