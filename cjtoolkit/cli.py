@@ -103,14 +103,29 @@ def _cmd_install(args: argparse.Namespace) -> int:
         print(e, file=sys.stderr)
         return 2
 
-    # 提權：非管理員且未 --dry-run / --no-elevate 時，用 UAC 重跑同一命令
+    # 提權：非管理員且未 --dry-run / --no-elevate 時，用 UAC 開一個管理員子行程
+    # 重跑 install（經 `-m cjtoolkit`，不是重跑 __main__.py 的路徑——那會壞掉）
     if not args.dry_run and not args.no_elevate and not _install.is_admin():
         print("需要系統管理員權限，正在請求提權…")
-        if _install.relaunch_as_admin([*sys.argv, "--_child"]):
-            print("已在新的管理員視窗繼續，本視窗可關閉。")
-            return 0
-        print("提權失敗或被取消。", file=sys.stderr)
-        return 1
+        child = _install.worker_argv() + [
+            "install", str(args.pack_dir), "--profile", args.profile,
+            "--no-elevate", "--yes", "--_child",
+        ]
+        if args.enable_hkscs:
+            child.append("--enable-hkscs")
+        if args.no_stop_ime:
+            child.append("--no-stop-ime")
+        if args.no_restart:
+            child.append("--no-restart")
+        if args.backup_dir:
+            child += ["--backup-dir", str(args.backup_dir)]
+        try:
+            rc = _install.run_elevated(child, cwd=_install.source_cwd(),
+                                       show=True, wait=True)
+        except OSError as e:
+            print(f"提權失敗或被取消：{e}", file=sys.stderr)
+            return 1
+        return rc
 
     if not args.yes and not args.dry_run:
         print(_install.PRE_INSTALL_ADVICE)

@@ -288,7 +288,8 @@ class MainWindow(QMainWindow):
         self._say("UAC 提權中，請在提示視窗按「是」…")
         QApplication.processEvents()
         try:
-            rc = _install.run_elevated(argv, show=True, wait=True)
+            rc = _install.run_elevated(argv, cwd=_install.source_cwd(),
+                                       show=True, wait=True)
         except OSError as e:
             self._say(f"提權或執行失敗：{e}")
             return

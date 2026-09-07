@@ -50,17 +50,17 @@ PROFILES = {
 }
 
 #: 安裝前要結束的行程（不含 .exe）。ChtIME 是微軟倉頡 IME 本體
-#: （C:\Windows\System32\InputMethod\CHT\ChtIME.exe）；ctfmon 裝完會重啟。
-IME_PROCESSES = ("ChtIME", "MicrosoftIME", "ctfmon")
+#: （C:\Windows\System32\InputMethod\CHT\ChtIME.exe），它才是鎖住碼表檔的那個。
+#: 不動 ctfmon —— 殺了它語言列會壞，而且從提權行程很難乾淨地把它拉回來。
+IME_PROCESSES = ("ChtIME", "MicrosoftIME")
 
 #: HKSCS（擴充區）開關：HKCU\Software\Microsoft\IME\15.0\CHT\Cangjie\Enable HKSCS = 1
 HKSCS_KEY = r"Software\Microsoft\IME\15.0\CHT\Cangjie"
 HKSCS_VALUE = "Enable HKSCS"
 
 PRE_INSTALL_ADVICE = (
-    "安裝前請先把輸入法切換到英文（或非微軟倉頡的輸入法）。\n"
-    "本工具會自動結束 ChtIME / MicrosoftIME 行程再覆寫檔案，"
-    "裝完重啟 ctfmon；你可能需要重新選一次輸入法或登出。"
+    "請先把輸入法切換到英文（或非微軟倉頡的輸入法），再繼續。\n"
+    "本工具會結束 ChtIME 行程後覆寫碼表檔；裝完可能要重新選一次輸入法或登出。"
 )
 
 
@@ -112,11 +112,23 @@ def relaunch_as_admin(extra_args: list[str] | None = None) -> bool:
     return int(rc) > 32  # <=32 代表失敗（含使用者按取消）
 
 
-def run_elevated(argv: list[str], *, show: bool = True, wait: bool = True) -> int:
+def source_cwd() -> str | None:
+    """從原始碼跑（未 pip install、未凍結）時，回傳含 cjtoolkit/ 套件的資料夾，
+    供提權子行程當工作目錄用（否則 `python -m cjtoolkit` 會找不到模組）。"""
+    if getattr(sys, "frozen", False):
+        return None
+    root = Path(__file__).resolve().parent.parent
+    return str(root) if (root / "cjtoolkit" / "__init__.py").exists() else None
+
+
+def run_elevated(argv: list[str], *, cwd: str | None = None,
+                 show: bool = True, wait: bool = True) -> int:
     """以管理員身分執行 argv（argv[0] 是可執行檔）。
 
-    show=True 顯示子行程主控台視窗；wait=True 等它結束並回傳 exit code
-    （否則回傳 0）。用 ShellExecuteExW，不重開呼叫者本身。
+    cwd    子行程工作目錄（None＝繼承）。
+    show   True 顯示子行程主控台視窗。
+    wait   True 等它結束並回傳 exit code（否則回傳 0）。
+    用 ShellExecuteExW，不重開呼叫者本身。
     """
     require_windows()
     import ctypes
@@ -151,6 +163,7 @@ def run_elevated(argv: list[str], *, show: bool = True, wait: bool = True) -> in
     info.lpVerb = "runas"
     info.lpFile = argv[0]
     info.lpParameters = subprocess.list2cmdline([str(a) for a in argv[1:]])
+    info.lpDirectory = cwd
     info.nShow = SW_SHOWNORMAL if show else SW_HIDE
 
     if not ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(info)):
@@ -235,26 +248,18 @@ def kill_cht_ime() -> list[str]:
 
 
 def start_ctfmon() -> list[str]:
-    """重啟 ctfmon。從提權行程直接啟動會 WinError 740（ctfmon 要一般權限），
-    改用 `runas /trustlevel:0x20000` 以受限（非提權）權杖啟動。"""
+    """確保 ctfmon 在跑。預設流程不會殺它，所以通常這裡什麼都不用做。"""
     if not is_windows():
+        return []
+    if is_running("ctfmon"):
         return []
     sysroot = os.environ.get("SystemRoot", r"C:\Windows")
     ctfmon = str(Path(sysroot) / "System32" / "ctfmon.exe")
     try:
         subprocess.Popen([ctfmon], close_fds=True)
-        return ["已重啟 ctfmon"]
+        return ["已啟動 ctfmon"]
     except OSError:
-        pass
-    try:
-        r = subprocess.run(["runas", "/trustlevel:0x20000", ctfmon],
-                           capture_output=True, text=True, timeout=15)
-        if r.returncode == 0:
-            return ["已以一般權限重啟 ctfmon"]
-        return [f"重啟 ctfmon 未成功（請登出再登入，或按 Win+R 執行 ctfmon）："
-                f"{(r.stderr or r.stdout).strip()}"]
-    except Exception as e:  # noqa: BLE001
-        return [f"重啟 ctfmon 失敗（請登出再登入）：{e}"]
+        return ["ctfmon 未在執行；請登出再登入，或按 Win+R 執行 ctfmon"]
 
 
 # ---- HKSCS 開關 --------------------------------------------------

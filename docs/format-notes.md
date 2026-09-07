@@ -60,8 +60,13 @@ CLI `--layout/--sep/--encoding` / GUI 下拉）：
   自動 `takeown /f` + `icacls /grant %USERNAME%:F` 再試（`needs_ownership=True`）。
 - HKSCS 擴充區開關：`HKCU\Software\Microsoft\IME\15.0\CHT\Cangjie` →
   `Enable HKSCS` = 1（DWORD）。`set_hkscs()`。
-- 提權：`relaunch_as_admin()` 用 `ShellExecuteW(None,"runas",...)` 重啟自己。
+- 提權：非管理員時用 `run_elevated()`（`ShellExecuteExW "runas"`）開一個管理員
+  子行程跑 `python -m cjtoolkit install … --_child`，**不重跑呼叫者本身**。
+  從原始碼跑時要把 `source_cwd()`（含 `cjtoolkit/` 的資料夾）當子行程工作目錄，
+  否則 `-m cjtoolkit` 找不到模組。`relaunch_as_admin()` 仍在但別用在會壞的情境。
+- 只結束 `ChtIME`（鎖檔的是它）；**不動 ctfmon**——殺了語言列會壞、又難乾淨還原。
 - 備份預設寫到 `<目標目錄>\Backup_<時間戳>\`；`restore()` / CLI `uninstall` 可還原。
-- 參考 Eden5Wu/Windows-Cangjie-Updater（PowerShell）：它只做 2004、不取得所有權、
-  另外會 `Stop-Process ctfmon,MicrosoftIME` 並 `Start-Process ctfmon`。
-- **尚未在真 Windows 上驗證。**
+- **2026-09-07 VM 實測（管理員終端）：2004 碼表成功替換、備份正常**。
+  即使沒先切走輸入法也成功，但仍建議使用者先切英文。
+  非管理員自動提權那條路徑還在調（子行程 cwd）。
+- 參考 Eden5Wu/Windows-Cangjie-Updater（PowerShell）：只做 2004、不取得所有權。
