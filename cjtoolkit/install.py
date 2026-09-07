@@ -298,20 +298,21 @@ def set_hkscs(enable: bool = True) -> list[str]:
 # ---- 所有權（legacy 用）---------------------------------------------
 
 
-def take_ownership(path: Path) -> list[str]:
-    """takeown + icacls 取得單一檔案的寫入權。best-effort。"""
+def take_ownership(path: Path, *, recurse: bool = False) -> list[str]:
+    """takeown + icacls 取得檔案或資料夾的寫入權。best-effort。"""
     if not is_windows():
         return []
     msgs: list[str] = []
     user = os.environ.get("USERNAME", "")
-    for cmd in (
-        ["takeown", "/f", str(path)],
-        ["icacls", str(path), "/grant", f"{user}:F"],
-    ):
+    domain = os.environ.get("USERDOMAIN", "")
+    who = f"{domain}\\{user}" if domain else user
+    takeown = ["takeown", "/f", str(path)] + (["/r", "/d", "Y"] if recurse else [])
+    icacls = ["icacls", str(path), "/grant", f"{who}:F"] + (["/t"] if recurse else [])
+    for cmd in (takeown, icacls):
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if r.returncode != 0:
-                msgs.append(f"{cmd[0]} 失敗：{(r.stderr or r.stdout).strip()}")
+                msgs.append(f"{cmd[0]} 失敗：{(r.stderr or r.stdout).strip().splitlines()[-1:]}")
         except Exception as e:  # noqa: BLE001
             msgs.append(f"{cmd[0]} 例外：{e}")
     return msgs
@@ -381,6 +382,7 @@ def apply_install(plan: InstallPlan, *, dry_run: bool = False,
 
     plan.dst_dir.mkdir(parents=True, exist_ok=True)
     needs_own = PROFILES[plan.profile]["needs_ownership"]
+    dir_owned = False
 
     for src, dst in plan.copies:
         if dry_run:
@@ -390,9 +392,13 @@ def apply_install(plan: InstallPlan, *, dry_run: bool = False,
             _replace_file(src, dst, delete_first)
             msgs.append(f"已安裝 {dst.name}")
         except PermissionError as e:
-            if needs_own and allow_takeown and dst.exists():
-                msgs.append(f"{dst.name}：覆寫被拒，嘗試取得所有權…")
-                msgs += take_ownership(dst)
+            if needs_own and allow_takeown:
+                if not dir_owned:
+                    msgs.append(f"{plan.dst_dir.name}：覆寫被拒，取得目錄與檔案所有權…")
+                    msgs += take_ownership(plan.dst_dir)
+                    dir_owned = True
+                if dst.exists():
+                    msgs += take_ownership(dst)
                 try:
                     _replace_file(src, dst, delete_first)
                     msgs.append(f"已安裝 {dst.name}（取得所有權後）")
