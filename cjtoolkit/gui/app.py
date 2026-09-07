@@ -247,14 +247,24 @@ class MainWindow(QMainWindow):
         profiles = ["2004", "legacy"] if profile == "both" else [profile]
 
         box = QMessageBox(self)
-        box.setWindowTitle("安裝")
-        box.setText(_install.PRE_INSTALL_ADVICE)
-        box.setInformativeText(
-            f"將安裝 {' + '.join(profiles)} 到系統目錄，原檔會先備份到目標目錄的 "
-            "Backup_<時間戳>。\n非管理員會跳出 UAC。要繼續嗎？")
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("安裝前確認")
+        box.setText(
+            f"即將把 {' + '.join(profiles)} 碼表寫入系統目錄。\n"
+            "原檔會先備份到目標目錄的 Backup_<時間戳>。")
+        box.setInformativeText(_install.PRE_INSTALL_ADVICE)
+        cb = QCheckBox("我已經把輸入法切換到英文（或其他非微軟倉頡的輸入法）")
+        box.setCheckBox(cb)
         box.setStandardButtons(QMessageBox.StandardButton.Ok
                                | QMessageBox.StandardButton.Cancel)
+        box.button(QMessageBox.StandardButton.Ok).setText("開始安裝")
         if box.exec() != QMessageBox.StandardButton.Ok:
+            return
+        if not cb.isChecked():
+            QMessageBox.warning(
+                self, "尚未切換輸入法",
+                "請先把輸入法切換到英文，勾選確認後再按「開始安裝」。\n"
+                "（提權視窗跳出時會搶走焦點，屆時不方便再切。）")
             return
 
         if _install.is_admin():

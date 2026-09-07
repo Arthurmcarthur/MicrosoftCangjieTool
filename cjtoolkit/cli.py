@@ -103,10 +103,18 @@ def _cmd_install(args: argparse.Namespace) -> int:
         print(e, file=sys.stderr)
         return 2
 
+    # 確認：在「開 UAC 視窗、搶走焦點」之前先問清楚。提權子行程帶 --yes 跳過再問。
+    interactive = not args.yes and not args.dry_run and not getattr(args, "_child", False)
+    if interactive:
+        print(_install.PRE_INSTALL_ADVICE)
+        if input("你已經把輸入法切換到英文了嗎？切換後輸入 y 繼續 [y/N] ").strip().lower() != "y":
+            print("已取消。請先切換輸入法再重試。")
+            return 1
+
     # 提權：非管理員且未 --dry-run / --no-elevate 時，用 UAC 開一個管理員子行程
     # 重跑 install（經 `-m cjtoolkit`，不是重跑 __main__.py 的路徑——那會壞掉）
     if not args.dry_run and not args.no_elevate and not _install.is_admin():
-        print("需要系統管理員權限，正在請求提權…")
+        print("正在請求系統管理員權限…")
         child = _install.worker_argv() + [
             "install", str(args.pack_dir), "--profile", args.profile,
             "--no-elevate", "--yes", "--_child",
@@ -126,12 +134,6 @@ def _cmd_install(args: argparse.Namespace) -> int:
             print(f"提權失敗或被取消：{e}", file=sys.stderr)
             return 1
         return rc
-
-    if not args.yes and not args.dry_run:
-        print(_install.PRE_INSTALL_ADVICE)
-        if input("繼續安裝？[y/N] ").strip().lower() != "y":
-            print("已取消。")
-            return 1
 
     try:
         msgs = _install.full_install(
