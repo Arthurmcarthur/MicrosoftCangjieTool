@@ -13,7 +13,7 @@
 ## 能做什麼
 
 - **轉換** —— 準備一份純文字碼表，就能轉成微軟倉頡辭典檔。
-- **合併聯想詞** —— 微軟倉頡原廠只能打單字，多字靠「聯想詞」。工具能把原廠的聯想詞詞庫（44572 條，已從官方檔解出並內附）逐字改用您的碼、合併進辭典，換碼表不會失去打聯想詞的能力。
+- **合併聯想詞** —— 倉頡輸入法在設計時沒有詞組特性，微軟倉頡同樣限制只能打單字。不過，微軟倉頡支持聯想詞功能，工具能把原廠的聯想詞詞庫（44572 條，已從官方檔解出並內附）合併進辭典，換碼表不會失去打聯想詞的能力。
 - **安裝碼表** —— 在 Windows 上備份原檔、結束輸入法行程、把新辭典複製進系統目錄；萬一失敗也能從備份還原。手上已有現成的微軟倉頡二進位辭典，也能直接用它安裝。
 - **驗證** —— 轉換或安裝前先檢查檔案有沒有問題，免得裝完輸入法崩掉。
 - **跨版本轉換** —— 新版（`sdc`）↔ 舊版（`lex`）辭典互轉。
@@ -23,8 +23,8 @@
 | 系統 | 狀態 |
 |---|---|
 | Windows 11 | 已在 25H2（build 26200.9168）實機驗證 |
-| Windows 10 | 應可用（2004 以後走新版格式，更早走舊版） |
-| Windows 8.1 | 理論上可用（走舊版路徑），未經測試 |
+| Windows 10 | 可用 |
+| Windows 8.1 | 理論上可用，未經測試 |
 
 辭典格式的細節見 [`docs/format-notes.md`](docs/format-notes.md)。
 
@@ -133,7 +133,7 @@ cjtoolkit transcode ChtChangjie.spd ChtChangjie.lex ChtChangjieExt.lex --to 2004
 
 **這會覆寫系統檔。** 工具每次都會先備份、`uninstall` 可還原，但日後的系統更新仍可能打破相容性，建議先在虛擬機或有還原點的環境試。安裝前務必把輸入法整個切成「英文（美國）」鍵盤或其他**非微軟**輸入法 —— 只把倉頡切成英文模式不會解除檔案佔用，程式就無法替換。
 
-**Windows 版本**：Windows 10 2004（build 19041）以後與 Windows 11 用新版辭典格式，更早的只能用舊版。`--profile auto`（預設）會自己判斷 —— 2004 以後的系統會**同時**更新新舊兩處，因為您可能開了「使用之前版本的 Microsoft 倉頡」開關。
+**Windows 版本**：Windows 10 2004（build 19041）以後與 Windows 11 用新版辭典格式，更早的只能用舊版。`--profile auto`（預設）會自己判斷 —— 2004 以後的系統會**同時**更新新舊兩處。
 
 ## 微軟倉頡碼表檔的位置
 
@@ -146,7 +146,9 @@ cjtoolkit transcode ChtChangjie.spd ChtChangjie.lex ChtChangjieExt.lex --to 2004
 | 合法碼表 | `ChtCangjie.spd` | `ChtChangjie.spd` |
 | 擴充區字 | `ChtCangjieExt.lex` | `ChtChangjieExt.lex` |
 
-微軟把新版拼成 “Cangjie”、舊版拼成 “Changjie”，不是筆誤。舊版目錄裡的檔案屬 TrustedInstaller，手動替換要先 `takeown` / `icacls` 取得所有權（`cjtoolkit install` 會自動處理）。
+Windows 10 2004及之後的版本、Windows 11默認使用「新版」碼表。但如果開啓「使用以前版本的微軟倉頡輸入法」開關，系統會調用舊版輸入法程序和文件。
+
+舊版目錄裡的檔案屬 TrustedInstaller，手動替換要先 `takeown` / `icacls` 取得所有權（`cjtoolkit install` 會自動處理）。
 
 ## 開發
 
