@@ -91,10 +91,6 @@ def _cmd_build(args: argparse.Namespace) -> int:
     return _cmd_pack(args)
 
 
-def _profiles(name: str) -> list[str]:
-    return ["2004", "legacy"] if name == "both" else [name]
-
-
 def _emit(msgs: list[str], log: str | None) -> None:
     for m in msgs:
         print(m)
@@ -111,6 +107,20 @@ def _cmd_install(args: argparse.Namespace) -> int:
     except _install.PlatformError as e:
         print(e, file=sys.stderr)
         return 2
+
+    # 版本判定（full_install 會依此跳過系統不支援的 profile；--force 強制）
+    resolved = _install.resolve_profiles(args.profile)
+    print(f"目前系統：{_install.windows_name()}")
+    if args.profile == "auto":
+        print(f"依系統版本選擇：{' + '.join(resolved)}")
+    if not args.force and not any(_install.profile_supported(p)[0] for p in resolved):
+        for p in resolved:
+            ok, why = _install.profile_supported(p)
+            if not why:
+                continue
+            print(f"⚠ {why}", file=sys.stderr)
+        print("沒有可安裝的 profile（用 --force 可強制）。", file=sys.stderr)
+        return 1
 
     # 確認：在「開 UAC 視窗、搶走焦點」之前先問清楚。提權子行程帶 --yes 跳過再問。
     interactive = not args.yes and not args.dry_run and not getattr(args, "_child", False)
@@ -136,6 +146,8 @@ def _cmd_install(args: argparse.Namespace) -> int:
             child.append("--no-stop-ime")
         if args.no_restart:
             child.append("--no-restart")
+        if args.force:
+            child.append("--force")
         if args.backup_dir:
             child += ["--backup-dir", str(args.backup_dir)]
         try:
@@ -149,11 +161,12 @@ def _cmd_install(args: argparse.Namespace) -> int:
     try:
         msgs = _install.full_install(
             Path(args.pack_dir),
-            _profiles(args.profile),
+            _install.resolve_profiles(args.profile),
             backup_root=Path(args.backup_dir) if args.backup_dir else None,
             enable_hkscs=args.enable_hkscs,
             stop_ime=not args.no_stop_ime,
             restart_ctfmon=not args.no_restart,
+            force=args.force,
             dry_run=args.dry_run,
         )
         rc = 0
@@ -236,8 +249,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     ins = sub.add_parser("install", help="部署到 Windows IME 目錄（僅 Windows）")
     ins.add_argument("pack_dir", help="含 ChtCangjie.* / ChtChangjie.* 的資料夾")
-    ins.add_argument("--profile", default="2004", choices=["2004", "legacy", "both"],
-                     help="預設只裝 2004（zh-hk）；legacy 需取得 TrustedInstaller 所有權")
+    ins.add_argument("--profile", default="auto",
+                     choices=["auto", "2004", "legacy", "both"],
+                     help="auto＝依系統版本判定（預設）；系統不支援的會被跳過")
+    ins.add_argument("--force", action="store_true",
+                     help="即使系統版本不支援也照裝（危險）")
     ins.add_argument("--backup-dir", default=None,
                      help="備份位置（預設存到目標目錄的 Backup_<時間戳>）")
     ins.add_argument("--enable-hkscs", action="store_true",

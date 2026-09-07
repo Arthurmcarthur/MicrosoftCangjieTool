@@ -69,11 +69,63 @@ class PlatformError(RuntimeError):
     pass
 
 
-# ---- 平台 / 權限 -----------------------------------------------------
+# ---- 平台 / 版本 / 權限 --------------------------------------------
+
+WIN10_2004_BUILD = 19041   # Windows 10 version 2004（新版碼表格式起點）
+WIN11_BUILD = 22000
 
 
 def is_windows() -> bool:
     return sys.platform == "win32"
+
+
+def windows_build() -> int | None:
+    """目前 Windows 的 build 編號；非 Windows 回 None。"""
+    if not is_windows():
+        return None
+    try:
+        return int(sys.getwindowsversion().build)
+    except Exception:
+        return None
+
+
+def windows_name() -> str:
+    b = windows_build()
+    if b is None:
+        return "非 Windows"
+    if b >= WIN11_BUILD:
+        return f"Windows 11（build {b}）"
+    if b >= WIN10_2004_BUILD:
+        return f"Windows 10 2004 或更新（build {b}）"
+    return f"Windows 10 2004 以前或更舊（build {b}）"
+
+
+def recommended_profile() -> str:
+    """依目前系統版本建議的 profile。"""
+    b = windows_build()
+    return "legacy" if (b is not None and b < WIN10_2004_BUILD) else "2004"
+
+
+def profile_supported(profile: str) -> tuple[bool, str]:
+    """(可否在目前系統安裝, 不可的原因)。非 Windows 一律視為可（可能在替別台打包）。"""
+    if profile == "legacy":
+        return True, ""            # 相容性一直保留，新系統也能裝舊版
+    b = windows_build()
+    if b is None or b >= WIN10_2004_BUILD:
+        return True, ""
+    return False, (
+        f"目前是{windows_name()}，早於 Windows 10 2004（build {WIN10_2004_BUILD}），"
+        "無法使用新版碼表格式。請改選「Windows 10 2004 以前」。"
+    )
+
+
+def resolve_profiles(name: str) -> list[str]:
+    """auto → 依系統版本；both → 兩者；其餘 → 自身。"""
+    if name == "auto":
+        return [recommended_profile()]
+    if name == "both":
+        return ["2004", "legacy"]
+    return [name]
 
 
 def require_windows() -> None:
@@ -450,14 +502,32 @@ def full_install(
     enable_hkscs: bool = False,
     stop_ime: bool = True,
     restart_ctfmon: bool = True,
+    force: bool = False,
     dry_run: bool = False,
 ) -> list[str]:
-    """CLI / GUI 共用的安裝編排。要求已提權。"""
+    """CLI / GUI 共用的安裝編排。要求已提權。
+
+    force=False 時，系統版本不支援的 profile 會被跳過（只警告不安裝壞碼表）。
+    """
     require_windows()
-    msgs: list[str] = []
+    msgs: list[str] = [f"目前系統：{windows_name()}"]
+
+    todo: list[str] = []
+    for prof in profiles:
+        ok, why = profile_supported(prof)
+        if ok or force:
+            if not ok:
+                msgs.append(f"⚠ 仍安裝 {prof}（--force）：{why}")
+            todo.append(prof)
+        else:
+            msgs.append(f"✗ 略過 {prof}：{why}")
+    if not todo:
+        msgs.append("沒有可安裝的 profile。")
+        return msgs
+
     if stop_ime and not dry_run:
         msgs += stop_processes()
-    for prof in profiles:
+    for prof in todo:
         plan = plan_install(prof, pack_dir)
         if not dry_run:
             b = backup_existing(plan, backup_root)

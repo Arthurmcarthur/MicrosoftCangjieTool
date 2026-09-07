@@ -25,6 +25,24 @@ def test_non_windows_guards():
         install.run_elevated(["x"])
 
 
+def test_version_helpers():
+    # 非 Windows：build None、都視為支援、auto→2004
+    assert install.resolve_profiles("both") == ["2004", "legacy"]
+    assert install.resolve_profiles("auto") == [install.recommended_profile()]
+    assert install.profile_supported("legacy") == (True, "")
+    ok, _ = install.profile_supported("2004")
+    assert ok  # 非 Windows 不擋
+
+
+def test_profile_supported_blocks_old_windows(monkeypatch):
+    monkeypatch.setattr(install, "windows_build", lambda: 18363)  # Win10 1909
+    ok, why = install.profile_supported("2004")
+    assert not ok and "2004" in why
+    assert install.profile_supported("legacy") == (True, "")
+    assert install.recommended_profile() == "legacy"
+    assert install.resolve_profiles("auto") == ["legacy"]
+
+
 def test_worker_argv():
     av = install.worker_argv()
     assert av[0]  # 可執行檔

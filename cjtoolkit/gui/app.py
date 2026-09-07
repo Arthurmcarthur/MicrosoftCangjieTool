@@ -106,7 +106,11 @@ class MainWindow(QMainWindow):
         self.fmt_row = fmt_row
 
         self.profile = QComboBox()
+        _auto_label = "自動判定"
+        if _install.is_windows():
+            _auto_label += f"（{_install.windows_name()}）"
         for value, label in (
+            ("auto", _auto_label),
             ("2004", "Windows 10 2004 及以後，或 Windows 11"),
             ("legacy", "Windows 10 2004 以前"),
             ("both", "兩者皆要"),
@@ -273,7 +277,25 @@ class MainWindow(QMainWindow):
         if not _install.is_windows() or self.pack_dir is None:
             return
         profile = self.profile.currentData()
-        profiles = ["2004", "legacy"] if profile == "both" else [profile]
+        profiles = _install.resolve_profiles(profile)
+        if profile == "auto":
+            self._say(f"系統版本 {_install.windows_name()} → 安裝 {' + '.join(profiles)}")
+
+        # 版本防禦：系統不支援的 profile 直接擋下
+        blocked = [(p, why) for p in profiles
+                   for ok, why in [_install.profile_supported(p)] if not ok]
+        if blocked:
+            supported = [p for p in profiles if p not in dict(blocked)]
+            msg = "\n".join(why for _, why in blocked)
+            if not supported:
+                QMessageBox.critical(self, "系統版本不支援", msg)
+                return
+            r = QMessageBox.question(
+                self, "部分不支援",
+                f"{msg}\n\n仍要安裝其餘（{' + '.join(supported)}）嗎？")
+            if r != QMessageBox.StandardButton.Yes:
+                return
+            profiles = supported
 
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
@@ -317,9 +339,10 @@ class MainWindow(QMainWindow):
 
         log_path = Path(tempfile.gettempdir()) / f"cjtoolkit-install-{os.getpid()}.log"
         log_path.unlink(missing_ok=True)
+        pchoice = "both" if len(profiles) == 2 else profiles[0]
         argv = _install.worker_argv() + [
             "install", str(self.pack_dir),
-            "--profile", profile, "--yes", "--no-elevate",
+            "--profile", pchoice, "--yes", "--no-elevate",
             "--log", str(log_path),
         ]
         if self.hkscs_box.isChecked():
