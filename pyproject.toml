@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cjtoolkit"
+version = "2.0.0a0"
+description = "微軟倉頡碼表工具：txt 碼表 → Lex/SDC 二進位、遠端獲取、安裝"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Arthurmcarthur" }]
+dependencies = []
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.6"]
+dev = ["pytest>=7", "PySide6>=6.6"]
+
+[project.scripts]
+cjtoolkit = "cjtoolkit.cli:main"
+
+[project.gui-scripts]
+cjtoolkit-gui = "cjtoolkit.gui.app:main"
+
+[tool.setuptools]
+packages = ["cjtoolkit", "cjtoolkit.gui"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

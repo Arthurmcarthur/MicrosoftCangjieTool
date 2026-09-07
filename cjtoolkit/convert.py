@@ -1,0 +1,274 @@
+"""一份 txt 碼表 → 微軟倉頡三檔文本（lex / spd / ext），再交給 codec 編成二進位。
+
+移植自 microsoft_cangjie/cangjie3/build_tables.py，去掉 cangjie3 專屬的寫死路徑，
+改成可傳參數。轉換規則與硬約束見 CLAUDE.md。
+
+輸入 txt 格式：一行一字，倉頡碼與漢字以 TAB 或半角空格分隔。
+    layout="char-code"  漢字在左（cangjie3.txt）
+    layout="code-char"  倉頡碼在左（本 repo 舊版 cj_sample.txt / 大部分碼表）
+    layout="auto"       看第一個非註解行：整行只含 A-Za-z 的一側當碼
+
+可選 phrases：微軟解碼出的詞表 TSV（text <TAB> codes <TAB> weight），
+逐字改用本碼表的碼（一字多碼取檔內最前者），沿用原權重。
+"""
+from __future__ import annotations
+
+import collections
+from dataclasses import dataclass, field
+from pathlib import Path
+
+# ---- 硬約束常數（見 CLAUDE.md）---------------------------------------------
+
+#: 單字 weight = CHAR_WEIGHT_BASE - 行號。必須 < 2^24（16,777,216），
+#: 且高於詞組最大權重（官方詞組 max ~1.076e7）。超過 2^24 → 候選錯位/打不出。
+CHAR_WEIGHT_BASE = 14_000_000
+
+#: SPD 相異碼上限（TRIE leaf 是 16-bit）。Ext.lex 的碼是字面字串、不進 SPD。
+SPD_MAX_CODES = 65_535
+
+EXT_A_LO, EXT_A_HI = 0x3400, 0x4DBF
+
+
+def is_bmp(cp: int) -> bool:
+    return cp <= 0xFFFF
+
+
+def is_ext_a(cp: int) -> bool:
+    return EXT_A_LO <= cp <= EXT_A_HI
+
+
+def is_hkscs(ch: str) -> bool:
+    """big5-hkscs 可編、但 big5 不可編 → HKSCS 專有字。"""
+    try:
+        ch.encode("big5hkscs")
+    except UnicodeEncodeError:
+        return False
+    try:
+        ch.encode("big5")
+        return False
+    except UnicodeEncodeError:
+        return True
+
+
+# ---- 解析輸入碼表 ----------------------------------------------------------
+
+
+@dataclass
+class CodeTable:
+    #: [(char, CODE_UPPER, line_index)]，去掉完全重複的 (char, code)，保留檔內順序
+    rows: list[tuple[str, str, int]]
+    #: {char: 第一個出現的碼（原大小寫）}
+    first_code: dict[str, str]
+
+
+def _looks_like_code(s: str) -> bool:
+    return len(s) > 0 and all(c.isascii() and c.isalpha() for c in s)
+
+
+def parse_code_table(path: Path, layout: str = "auto") -> CodeTable:
+    rows: list[tuple[str, str, int]] = []
+    first_code: dict[str, str] = {}
+    seen: set[tuple[str, str]] = set()
+
+    lines = []
+    with path.open(encoding="utf-8-sig") as f:  # 容忍 BOM
+        for raw in f:
+            ln = raw.rstrip("\n").rstrip("\r")
+            if not ln or ln.lstrip().startswith("#"):
+                continue
+            lines.append(ln)
+
+    if layout == "auto":
+        layout = _detect_layout(lines)
+
+    for i, ln in enumerate(lines):
+        parts = ln.split("\t") if "\t" in ln else ln.split()
+        if len(parts) < 2:
+            raise ValueError(f"{path.name} 第 {i} 行無法分割成兩欄: {ln!r}")
+        a, b = parts[0], parts[1]
+        if layout == "code-char":
+            code, ch = a, b
+        else:  # char-code
+            ch, code = a, b
+        if len(ch) != 1:
+            raise ValueError(f"{path.name} 第 {i} 行漢字欄不是單字: {ln!r}")
+        first_code.setdefault(ch, code)
+        key = (ch, code)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((ch, code.upper(), i))
+
+    return CodeTable(rows=rows, first_code=first_code)
+
+
+def _detect_layout(lines: list[str]) -> str:
+    votes = collections.Counter()
+    for ln in lines[:200]:
+        parts = ln.split("\t") if "\t" in ln else ln.split()
+        if len(parts) < 2:
+            continue
+        a_code, b_code = _looks_like_code(parts[0]), _looks_like_code(parts[1])
+        if a_code and not b_code:
+            votes["code-char"] += 1
+        elif b_code and not a_code:
+            votes["char-code"] += 1
+    if not votes:
+        raise ValueError("無法自動判斷碼表欄位順序，請用 layout= 指定")
+    return votes.most_common(1)[0][0]
+
+
+# ---- 詞組 ----------------------------------------------------------------
+
+
+def load_phrases(path: Path) -> list[tuple[str, int | None]]:
+    """微軟詞表 TSV 的多字詞：[(text, weight)]，保留原順序。"""
+    out: list[tuple[str, int | None]] = []
+    with path.open(encoding="utf-8") as f:
+        for ln in f:
+            if ln.startswith("#"):
+                continue
+            ln = ln.rstrip("\n")
+            if not ln:
+                continue
+            parts = ln.split("\t")
+            text = parts[0]
+            if len(text) < 2:
+                continue
+            weight = int(parts[2]) if len(parts) > 2 and parts[2] else None
+            out.append((text, weight))
+    return out
+
+
+# ---- 轉換 --------------------------------------------------------------
+
+
+@dataclass
+class ConvertResult:
+    lex_text: str
+    spd_text: str
+    ext_text: str
+    n_char: int
+    n_phrase: int
+    n_ext: int
+    n_codes: int
+    dropped_phrases: int
+    flag_hist: dict[int, int] = field(default_factory=dict)
+
+
+def convert(
+    code_table: Path,
+    *,
+    layout: str = "auto",
+    phrases: Path | None = None,
+    char_weight_base: int = CHAR_WEIGHT_BASE,
+    ext_a_to_lex: bool = True,
+) -> ConvertResult:
+    ct = parse_code_table(code_table, layout)
+
+    def goes_to_lex(ch: str) -> bool:
+        cp = ord(ch)
+        if not is_bmp(cp):
+            return False  # 增補平面只能進 Ext.lex（SDC text 依 codepoint 計數）
+        if is_ext_a(cp) and not ext_a_to_lex:
+            return False
+        return True
+
+    # ---- LEX：單字 ----
+    lex_lines: list[str] = []
+    lex_codes: set[str] = set()
+    n_char = 0
+    for ch, code, idx in ct.rows:
+        if not goes_to_lex(ch):
+            continue
+        weight = char_weight_base - idx
+        if weight <= 0 or weight >= (1 << 24):
+            raise ValueError(
+                f"weight {weight} 超出 (0, 2^24)；碼表 {len(ct.rows)} 行，"
+                f"調小 char_weight_base 或分批"
+            )
+        lex_lines.append(f"{ch}\t{code}\t{weight}")
+        lex_codes.add(code)
+        n_char += 1
+
+    # ---- LEX：詞組 ----
+    n_phrase = 0
+    dropped = 0
+    if phrases is not None:
+        for text, weight in load_phrases(phrases):
+            try:
+                pcodes = [ct.first_code[c].upper() for c in text]
+            except KeyError:
+                dropped += 1
+                continue
+            w = weight if weight is not None else ""
+            lex_lines.append(f"{text}\t{' '.join(pcodes)}\t{w}".rstrip("\t"))
+            lex_codes.update(pcodes)
+            n_phrase += 1
+
+    # ---- SPD（僅主 lex 引用到的碼）----
+    codes = sorted(lex_codes)
+    if len(codes) > SPD_MAX_CODES:
+        raise ValueError(f"SPD 相異碼 {len(codes)} > 上限 {SPD_MAX_CODES}")
+
+    # ---- EXT ----
+    ext_lines: list[str] = []
+    flag_hist: collections.Counter[int] = collections.Counter()
+    for ch, code, idx in ct.rows:
+        if goes_to_lex(ch):
+            continue
+        fl = 6 if is_hkscs(ch) else 2
+        flag_hist[fl] += 1
+        ext_lines.append(f"{code.lower()}\t{ch}\t{fl}")
+
+    spd_text = (
+        "# type: spd\n"
+        f"# {len(codes)} codes\n"
+        f"# source: {code_table.name} (codes referenced by main lex)\n\n"
+        + "\n".join(codes)
+        + "\n"
+    )
+    lex_text = (
+        "# type: lex\n"
+        "# columns: text <TAB> codes [ <TAB> weight ]\n"
+        f"# {len(lex_lines)} entries ({n_char} chars + {n_phrase} phrases)\n"
+        f"# source: {code_table.name}"
+        + (f" + {phrases.name} (phrases)" if phrases else "")
+        + "\n\n"
+        + "\n".join(lex_lines)
+        + "\n"
+    )
+    ext_text = (
+        "# type: ext\n"
+        "# columns: code <TAB> char [ <TAB> flags ]\n"
+        "# flags: 2=一般擴展 6=HKSCS（Ext.lex 只含增補平面字）\n"
+        f"# {len(ext_lines)} entries\n"
+        f"# source: {code_table.name}\n\n"
+        + "\n".join(ext_lines)
+        + "\n"
+    )
+
+    return ConvertResult(
+        lex_text=lex_text,
+        spd_text=spd_text,
+        ext_text=ext_text,
+        n_char=n_char,
+        n_phrase=n_phrase,
+        n_ext=len(ext_lines),
+        n_codes=len(codes),
+        dropped_phrases=dropped,
+        flag_hist=dict(sorted(flag_hist.items())),
+    )
+
+
+def write_result(result: ConvertResult, outdir: Path, stem: str = "cangjie") -> dict[str, Path]:
+    outdir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "lex": outdir / f"{stem}.tsv",
+        "spd": outdir / f"{stem}.spd.txt",
+        "ext": outdir / f"{stem}.ext.tsv",
+    }
+    paths["lex"].write_text(result.lex_text, encoding="utf-8")
+    paths["spd"].write_text(result.spd_text, encoding="utf-8")
+    paths["ext"].write_text(result.ext_text, encoding="utf-8")
+    return paths
