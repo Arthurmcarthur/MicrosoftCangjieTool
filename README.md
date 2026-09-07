@@ -39,9 +39,15 @@ cjtoolkit build cangjie.txt --phrases ms-phrases.tsv -o out --profile both
 cjtoolkit convert cangjie.txt -o out
 cjtoolkit pack out --profile both
 
-# 安裝（僅 Windows，需系統管理員）
-cjtoolkit install out/pack --profile both --kill-ime
+# 安裝（僅 Windows；非管理員會自動跳 UAC）
+cjtoolkit install out/pack --profile 2004 --enable-hkscs
+cjtoolkit install out/pack --dry-run          # 先看會做什麼
+cjtoolkit uninstall "C:\Windows\System32\zh-hk\Backup_20260907-120000" --profile 2004
 ```
+
+安裝流程：提權 → 結束 `ChtIME`/`MicrosoftIME` → 備份原檔到目標目錄的
+`Backup_<時間戳>\` → 刪除+複製 → （`--enable-hkscs`）開擴充區開關 → 重啟 `ctfmon`。
+`legacy`（`InputMethod\CHT`）原檔屬 TrustedInstaller，覆寫失敗時自動 `takeown`/`icacls`。
 
 ### 純文字碼表格式
 

@@ -4,7 +4,8 @@
     cjtoolkit convert  <table.txt> [--phrases ms.tsv] [--layout auto] -o outdir
     cjtoolkit pack     <outdir> [--profile both]          # 三檔文本 → 二進位套件
     cjtoolkit build    <table.txt> [...] -o outdir        # convert + pack 一步到位
-    cjtoolkit install  <pack_dir> [--profile both] [--dry-run]   # 僅 Windows
+    cjtoolkit install  <pack_dir> [--profile 2004] [--enable-hkscs] [--dry-run]  # 僅 Windows
+    cjtoolkit uninstall <backup_dir> [--profile 2004]     # 從備份還原
     cjtoolkit codec    ...                                # 直通 vendored codec
 
 （fetch 遠端獲取暫時隱藏，模組 cjtoolkit.fetch 仍在，之後再接。）
@@ -81,30 +82,59 @@ def _cmd_build(args: argparse.Namespace) -> int:
     return _cmd_pack(args)
 
 
+def _profiles(name: str) -> list[str]:
+    return ["2004", "legacy"] if name == "both" else [name]
+
+
 def _cmd_install(args: argparse.Namespace) -> int:
     try:
         _install.require_windows()
     except _install.PlatformError as e:
         print(e, file=sys.stderr)
         return 2
+
+    # 提權：非管理員且未 --dry-run / --no-elevate 時，用 UAC 重啟自己
+    if not args.dry_run and not args.no_elevate and not _install.is_admin():
+        print("需要系統管理員權限，正在請求提權…")
+        if _install.relaunch_as_admin():
+            print("已在新的管理員視窗繼續。")
+            return 0
+        print("提權失敗或被取消。", file=sys.stderr)
+        return 1
+
     print(_install.PRE_INSTALL_ADVICE)
-    if args.kill_ime and not args.dry_run:
-        for m in _install.kill_cht_ime():
-            print(m)
-    elif not args.yes and not args.dry_run:
-        if input("已切換到英文輸入法並準備好了嗎？[y/N] ").strip().lower() != "y":
+    if not args.yes and not args.dry_run:
+        if input("繼續安裝？[y/N] ").strip().lower() != "y":
             print("已取消。")
             return 1
 
-    profiles = ["legacy", "2004"] if args.profile == "both" else [args.profile]
-    for prof in profiles:
-        plan = _install.plan_install(prof, Path(args.pack_dir))
-        if args.backup_dir:
-            b = _install.backup_existing(plan, Path(args.backup_dir))
-            if b:
-                print(f"已備份原檔 → {b}")
-        for m in _install.apply_install(plan, dry_run=args.dry_run):
-            print(m)
+    msgs = _install.full_install(
+        Path(args.pack_dir),
+        _profiles(args.profile),
+        backup_root=Path(args.backup_dir) if args.backup_dir else None,
+        enable_hkscs=args.enable_hkscs,
+        stop_ime=not args.no_stop_ime,
+        restart_ctfmon=not args.no_restart,
+        dry_run=args.dry_run,
+    )
+    for m in msgs:
+        print(m)
+    return 0
+
+
+def _cmd_uninstall(args: argparse.Namespace) -> int:
+    try:
+        _install.require_windows()
+    except _install.PlatformError as e:
+        print(e, file=sys.stderr)
+        return 2
+    if not args.dry_run and not args.no_elevate and not _install.is_admin():
+        if _install.relaunch_as_admin():
+            return 0
+        print("提權失敗或被取消。", file=sys.stderr)
+        return 1
+    for m in _install.restore(Path(args.backup_dir), args.profile):
+        print(m)
     return 0
 
 
@@ -159,12 +189,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     ins = sub.add_parser("install", help="部署到 Windows IME 目錄（僅 Windows）")
     ins.add_argument("pack_dir", help="含 ChtCangjie.* / ChtChangjie.* 的資料夾")
-    ins.add_argument("--profile", default="both", choices=["2004", "legacy", "both"])
-    ins.add_argument("--backup-dir", default="cj-backup")
-    ins.add_argument("--kill-ime", action="store_true", help="安裝前結束 ChtIME.exe")
+    ins.add_argument("--profile", default="2004", choices=["2004", "legacy", "both"],
+                     help="預設只裝 2004（zh-hk）；legacy 需取得 TrustedInstaller 所有權")
+    ins.add_argument("--backup-dir", default=None,
+                     help="備份位置（預設存到目標目錄的 Backup_<時間戳>）")
+    ins.add_argument("--enable-hkscs", action="store_true",
+                     help="安裝後開啟 HKCU 的『Enable HKSCS』擴充區開關")
+    ins.add_argument("--no-stop-ime", action="store_true", help="不要結束 IME 行程")
+    ins.add_argument("--no-restart", action="store_true", help="裝完不重啟 ctfmon")
+    ins.add_argument("--no-elevate", action="store_true", help="不自動 UAC 提權")
     ins.add_argument("-y", "--yes", action="store_true", help="略過安裝前確認")
-    ins.add_argument("--dry-run", action="store_true")
+    ins.add_argument("--dry-run", action="store_true", help="只列出動作，不改任何檔案")
     ins.set_defaults(func=_cmd_install)
+
+    un = sub.add_parser("uninstall", help="從備份還原（僅 Windows）")
+    un.add_argument("backup_dir", help="某次備份的資料夾")
+    un.add_argument("--profile", default="2004", choices=["2004", "legacy"])
+    un.add_argument("--no-elevate", action="store_true")
+    un.add_argument("--dry-run", action="store_true")
+    un.set_defaults(func=_cmd_uninstall)
 
     cd = sub.add_parser("codec", help="直通 vendored codec（info/decode/encode/roundtrip）")
     cd.add_argument("rest", nargs=argparse.REMAINDER)

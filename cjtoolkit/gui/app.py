@@ -25,6 +25,7 @@ try:
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import (
         QApplication,
+        QCheckBox,
         QComboBox,
         QFileDialog,
         QHBoxLayout,
@@ -97,7 +98,9 @@ class MainWindow(QMainWindow):
         self.fmt_row = fmt_row
 
         self.profile = QComboBox()
-        self.profile.addItems(["both", "2004", "legacy"])
+        self.profile.addItems(["2004", "legacy", "both"])
+        self.hkscs_box = QCheckBox("安裝後開 HKSCS 擴充區")
+        self.hkscs_box.setChecked(True)
         self.convert_btn = QPushButton("轉換並打包")
         self.convert_btn.clicked.connect(self._convert)
         self.convert_btn.setEnabled(False)
@@ -111,6 +114,10 @@ class MainWindow(QMainWindow):
         row2.addWidget(self.convert_btn)
         row2.addWidget(self.install_btn)
         row2.addStretch(1)
+        row3 = QHBoxLayout()
+        row3.addWidget(self.hkscs_box)
+        row3.addStretch(1)
+        self.row3 = row3
 
         central = QWidget()
         v = QVBoxLayout(central)
@@ -119,7 +126,9 @@ class MainWindow(QMainWindow):
         v.addLayout(row1)
         v.addLayout(fmt_row)
         v.addLayout(row2)
-        if not _install.is_windows():
+        if _install.is_windows():
+            v.addLayout(row3)
+        else:
             v.addWidget(QLabel("非 Windows：可轉換打包，安裝功能停用。"))
         v.addWidget(QLabel("訊息"))
         v.addWidget(self.log)
@@ -233,23 +242,36 @@ class MainWindow(QMainWindow):
     def _install(self) -> None:
         if not _install.is_windows() or self.pack_dir is None:
             return
+        profiles = (["2004", "legacy"] if self.profile.currentText() == "both"
+                    else [self.profile.currentText()])
+
         box = QMessageBox(self)
-        box.setWindowTitle("安裝前準備")
+        box.setWindowTitle("安裝")
         box.setText(_install.PRE_INSTALL_ADVICE)
-        box.setInformativeText("要現在替你結束 ChtIME.exe 嗎？（系統會自動重啟）")
-        box.setStandardButtons(
-            QMessageBox.StandardButton.Yes
-            | QMessageBox.StandardButton.No
-            | QMessageBox.StandardButton.Cancel)
-        choice = box.exec()
-        if choice == QMessageBox.StandardButton.Cancel:
+        box.setInformativeText(
+            f"將安裝 {' + '.join(profiles)} 到系統目錄，原檔會先備份。\n"
+            "非管理員會跳出 UAC 提權。要繼續嗎？")
+        box.setStandardButtons(QMessageBox.StandardButton.Ok
+                               | QMessageBox.StandardButton.Cancel)
+        if box.exec() != QMessageBox.StandardButton.Ok:
             return
-        if choice == QMessageBox.StandardButton.Yes:
-            for m in _install.kill_cht_ime():
-                self._say(m)
-        # TODO: 提權 + install.apply_install（見 CLAUDE.md 待實作）
-        self._say(f"TODO: 提權後安裝 {self.pack_dir} "
-                  f"（profile={self.profile.currentText()}）")
+
+        if not _install.is_admin():
+            if not _install.relaunch_as_admin():
+                self._say("提權失敗或被取消；請以管理員身分重開本程式。")
+                return
+            self._say("已在管理員視窗重啟，請在該視窗繼續。")
+            return
+
+        try:
+            msgs = _install.full_install(
+                self.pack_dir, profiles,
+                enable_hkscs=self.hkscs_box.isChecked())
+        except Exception as e:  # noqa: BLE001
+            self._say(f"安裝失敗：{e}")
+            return
+        for m in msgs:
+            self._say(m)
 
     # ----
 

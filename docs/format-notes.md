@@ -50,11 +50,18 @@ CLI `--layout/--sep/--encoding` / GUI 下拉）：
 - 詞組（`--phrases`）逐字改用碼表該字第一個碼，沿用原權重，一律排在單字後。
 - Ext.lex flags：big5-hkscs 專有 → 6，其餘 → 2。
 
-## 安裝
+## 安裝（`install.py`）
 
-- **舊版 `C:\Windows\InputMethod\CHT`：需提權 + 取得所有權**
-  （原檔屬 TrustedInstaller，`takeown /f` + `icacls /grant`，或
-  `MoveFileEx(..., MOVEFILE_DELAY_UNTIL_REBOOT)`）。
-- **新版 `C:\Windows\System32\zh-hk`：只要提權即可**。
-- 安裝前請使用者先把輸入法切到英文，再結束 `ChtIME.exe`（系統會自動重啟）。
-- 一律先備份原檔。
+流程：UAC 提權 → 結束 `ChtIME`/`MicrosoftIME` → 備份 → 刪除+複製 →
+（可選）開 HKSCS → 重啟 `ctfmon`。
+
+- **新版 `C:\Windows\System32\zh-hk`：提權即可**（`apply_install` 直接刪+複製）。
+- **舊版 `C:\Windows\InputMethod\CHT`：原檔屬 TrustedInstaller**，覆寫被拒時
+  自動 `takeown /f` + `icacls /grant %USERNAME%:F` 再試（`needs_ownership=True`）。
+- HKSCS 擴充區開關：`HKCU\Software\Microsoft\IME\15.0\CHT\Cangjie` →
+  `Enable HKSCS` = 1（DWORD）。`set_hkscs()`。
+- 提權：`relaunch_as_admin()` 用 `ShellExecuteW(None,"runas",...)` 重啟自己。
+- 備份預設寫到 `<目標目錄>\Backup_<時間戳>\`；`restore()` / CLI `uninstall` 可還原。
+- 參考 Eden5Wu/Windows-Cangjie-Updater（PowerShell）：它只做 2004、不取得所有權、
+  另外會 `Stop-Process ctfmon,MicrosoftIME` 並 `Start-Process ctfmon`。
+- **尚未在真 Windows 上驗證。**
