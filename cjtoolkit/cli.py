@@ -28,7 +28,8 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     if len(binaries) > 1 or (args.as_set and len(paths) > 1):
         rep = _validate.validate_set(paths)
     else:
-        rep = _validate.validate_path(paths[0], spd=spd, layout=args.layout)
+        rep = _validate.validate_path(paths[0], spd=spd, layout=args.layout,
+                                      separator=args.sep, encoding=args.encoding)
     print(rep.render())
     return 0 if rep.ok else 1
 
@@ -37,6 +38,8 @@ def _cmd_convert(args: argparse.Namespace) -> int:
     res = _convert.convert(
         Path(args.table),
         layout=args.layout,
+        separator=args.sep,
+        encoding=args.encoding,
         phrases=Path(args.phrases) if args.phrases else None,
         char_weight_base=args.weight_base,
         ext_a_to_lex=not args.ext_a_separate,
@@ -114,11 +117,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="version", version=f"cjtoolkit {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
 
+    def add_format_args(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument("--layout", default="auto", choices=list(_convert.LAYOUTS),
+                        help="欄序：auto / char-code(字在左) / code-char(碼在左)")
+        sp.add_argument("--sep", default="auto", choices=list(_convert.SEPARATORS),
+                        help="分隔：auto / tab / space")
+        sp.add_argument("--encoding", default="utf-8",
+                        help="文字編碼（預設 utf-8，自動容忍 BOM；可填 big5hkscs、gb18030…）")
+
     def add_convert_args(sp: argparse.ArgumentParser) -> None:
         sp.add_argument("table", help="txt 碼表")
         sp.add_argument("--phrases", help="微軟詞表 TSV（可選，沿用詞組並改碼）")
-        sp.add_argument("--layout", default="auto",
-                        choices=["auto", "char-code", "code-char"])
+        add_format_args(sp)
         sp.add_argument("--weight-base", type=int, default=_convert.CHAR_WEIGHT_BASE)
         sp.add_argument("--ext-a-separate", action="store_true",
                         help="Ext-A 放 Ext.lex 而非主 lex（預設放主 lex）")
@@ -128,8 +138,7 @@ def build_parser() -> argparse.ArgumentParser:
     v = sub.add_parser("validate", help="檢查匯入的檔案合不合法")
     v.add_argument("files", nargs="+", help="txt 碼表，或 spd / lex / sdc / Ext.lex")
     v.add_argument("--spd", help="配套 .spd（驗 lex/sdc 時用來查 spell index）")
-    v.add_argument("--layout", default="auto",
-                   choices=["auto", "char-code", "code-char"])
+    add_format_args(v)
     v.add_argument("--as-set", action="store_true", help="把多個檔當一整套交叉檢查")
     v.set_defaults(func=_cmd_validate)
 

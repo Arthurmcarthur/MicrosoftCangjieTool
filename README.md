@@ -43,8 +43,17 @@ cjtoolkit pack out --profile both
 cjtoolkit install out/pack --profile both --kill-ime
 ```
 
-碼表格式：一行一字，倉頡碼與漢字以 TAB 或空格分隔，UTF-8。
-欄位順序自動偵測（`--layout char-code | code-char` 可強制）。
+### 純文字碼表格式
+
+一行一字。三個維度都可指定（自動偵測失敗或猜錯時）：
+
+| 維度 | 選項 | 說明 |
+|---|---|---|
+| 欄序 `--layout` | `auto` / `char-code` / `code-char` | `char-code`＝漢字在左（`日<TAB>a`）；`code-char`＝倉頡碼在左（`a<TAB>日`）|
+| 分隔 `--sep` | `auto` / `tab` / `space` | `space` 吃任意空白（單／多個空格或 tab）|
+| 編碼 `--encoding` | `utf-8`（預設，自動容忍 BOM）/ `big5hkscs` / `gb18030` / 任何 Python codec 名 | |
+
+`#` 開頭的行視為註解。GUI 有對應的三個下拉選單。
 
 驗證會檢查 [`docs/format-notes.md`](docs/format-notes.md) 列出的硬約束
 （權重 < 2^24、SPD 相異碼 ≤ 65535、Ext.lex 排序、SPD TRIE 格式等）。

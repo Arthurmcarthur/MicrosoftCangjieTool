@@ -75,6 +75,27 @@ class MainWindow(QMainWindow):
         row1.addWidget(self.validate_btn)
         row1.addStretch(1)
 
+        # 純文字碼表格式（欄序 / 分隔 / 編碼）
+        self.layout_box = QComboBox()
+        self.layout_box.addItems(list(_convert.LAYOUTS))
+        self.layout_box.setToolTip("欄序：char-code=字在左，code-char=碼在左")
+        self.sep_box = QComboBox()
+        self.sep_box.addItems(list(_convert.SEPARATORS))
+        self.sep_box.setToolTip("分隔字元：tab / space（任意空白）")
+        self.enc_box = QComboBox()
+        self.enc_box.setEditable(True)
+        self.enc_box.addItems(list(_convert.ENCODINGS))
+
+        fmt_row = QHBoxLayout()
+        fmt_row.addWidget(QLabel("碼表格式  欄序"))
+        fmt_row.addWidget(self.layout_box)
+        fmt_row.addWidget(QLabel("分隔"))
+        fmt_row.addWidget(self.sep_box)
+        fmt_row.addWidget(QLabel("編碼"))
+        fmt_row.addWidget(self.enc_box)
+        fmt_row.addStretch(1)
+        self.fmt_row = fmt_row
+
         self.profile = QComboBox()
         self.profile.addItems(["both", "2004", "legacy"])
         self.convert_btn = QPushButton("轉換並打包")
@@ -96,6 +117,7 @@ class MainWindow(QMainWindow):
         v.addWidget(QLabel("匯入檔案（文字碼表，或 spd + lex/sdc + Ext.lex 一整套）"))
         v.addWidget(self.list)
         v.addLayout(row1)
+        v.addLayout(fmt_row)
         v.addLayout(row2)
         if not _install.is_windows():
             v.addWidget(QLabel("非 Windows：可轉換打包，安裝功能停用。"))
@@ -129,10 +151,16 @@ class MainWindow(QMainWindow):
 
     # ---- 驗證 ----
 
+    def _fmt(self) -> tuple[str, str, str]:
+        return (self.layout_box.currentText().strip() or "auto",
+                self.sep_box.currentText().strip() or "auto",
+                self.enc_box.currentText().strip() or "utf-8")
+
     def _validate(self) -> None:
         if not self.files:
             self._say("先加入檔案。")
             return
+        layout, sep, enc = self._fmt()
         kinds = {_validate.classify(p) for p in self.files}
         try:
             if kinds & _BIN and (len(self.files) > 1 or kinds <= _BIN):
@@ -140,7 +168,9 @@ class MainWindow(QMainWindow):
             else:
                 spd = next((p for p in self.files
                             if _validate.classify(p) == "spd"), None)
-                self.report = _validate.validate_path(self.files[0], spd=spd)
+                self.report = _validate.validate_path(
+                    self.files[0], spd=spd, layout=layout,
+                    separator=sep, encoding=enc)
         except Exception as e:  # noqa: BLE001
             self._say(f"驗證時發生錯誤：{e}")
             return
@@ -175,9 +205,11 @@ class MainWindow(QMainWindow):
         if not out:
             return
         outdir = Path(out)
+        layout, sep, enc = self._fmt()
         try:
             if self.report.kind == "code-table":
-                res = _convert.convert(self.files[0])
+                res = _convert.convert(self.files[0], layout=layout,
+                                       separator=sep, encoding=enc)
                 paths = _convert.write_result(res, outdir)
                 self._say(f"單字 {res.n_char}  詞組 {res.n_phrase}  "
                           f"擴充 {res.n_ext}  SPD 碼 {res.n_codes}")

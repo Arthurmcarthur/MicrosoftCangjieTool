@@ -61,37 +61,81 @@ class CodeTable:
     first_code: dict[str, str]
 
 
+#: 可選欄序 / 分隔 / 編碼（GUI 下拉、CLI 參數共用）
+LAYOUTS = ("auto", "char-code", "code-char")
+SEPARATORS = ("auto", "tab", "space")
+#: 常見編碼；使用者也可直接填任何 Python codec 名
+ENCODINGS = ("utf-8", "utf-8-sig", "utf-16", "gb18030", "big5hkscs", "big5")
+
+
 def _looks_like_code(s: str) -> bool:
     return len(s) > 0 and all(c.isascii() and c.isalpha() for c in s)
 
 
-def parse_code_table(path: Path, layout: str = "auto") -> CodeTable:
+def _split(ln: str, separator: str) -> list[str]:
+    if separator == "tab":
+        return ln.split("\t")
+    if separator == "space":
+        return ln.split()          # 任意空白（單／多個空格、tab）
+    # auto：有 tab 用 tab，否則任意空白
+    return ln.split("\t") if "\t" in ln else ln.split()
+
+
+def _read_lines(path: Path, encoding: str) -> list[str]:
+    enc = "utf-8-sig" if encoding == "utf-8" else encoding  # utf-8 一律容忍 BOM
+    try:
+        raw = path.read_text(encoding=enc)
+    except (LookupError, UnicodeDecodeError) as e:
+        raise ValueError(f"以 {encoding} 讀取失敗：{e}") from e
+    out = []
+    for line in raw.splitlines():
+        s = line.rstrip("\r")
+        if not s or s.lstrip().startswith("#"):
+            continue
+        out.append(s)
+    return out
+
+
+def parse_code_table(
+    path: Path,
+    layout: str = "auto",
+    *,
+    separator: str = "auto",
+    encoding: str = "utf-8",
+) -> CodeTable:
+    """解析純文字碼表。
+
+    layout     auto | char-code（字在左）| code-char（碼在左）
+    separator  auto | tab | space（space＝任意空白）
+    encoding   任何 Python codec 名；"utf-8" 會自動容忍 BOM
+    """
+    if layout not in LAYOUTS:
+        raise ValueError(f"未知 layout: {layout!r}（{'/'.join(LAYOUTS)}）")
+    if separator not in SEPARATORS:
+        raise ValueError(f"未知 separator: {separator!r}（{'/'.join(SEPARATORS)}）")
+
+    lines = _read_lines(path, encoding)
+    if not lines:
+        raise ValueError(f"{path.name}: 沒有可解析的資料行")
+
+    if layout == "auto":
+        layout = _detect_layout(lines, separator)
+
     rows: list[tuple[str, str, int]] = []
     first_code: dict[str, str] = {}
     seen: set[tuple[str, str]] = set()
-
-    lines = []
-    with path.open(encoding="utf-8-sig") as f:  # 容忍 BOM
-        for raw in f:
-            ln = raw.rstrip("\n").rstrip("\r")
-            if not ln or ln.lstrip().startswith("#"):
-                continue
-            lines.append(ln)
-
-    if layout == "auto":
-        layout = _detect_layout(lines)
-
     for i, ln in enumerate(lines):
-        parts = ln.split("\t") if "\t" in ln else ln.split()
+        parts = [p for p in _split(ln, separator) if p != ""]
         if len(parts) < 2:
-            raise ValueError(f"{path.name} 第 {i} 行無法分割成兩欄: {ln!r}")
+            raise ValueError(
+                f"{path.name} 第 {i} 行無法用「{separator}」分割成兩欄: {ln!r}"
+            )
         a, b = parts[0], parts[1]
-        if layout == "code-char":
-            code, ch = a, b
-        else:  # char-code
-            ch, code = a, b
+        code, ch = (a, b) if layout == "code-char" else (b, a)
         if len(ch) != 1:
-            raise ValueError(f"{path.name} 第 {i} 行漢字欄不是單字: {ln!r}")
+            raise ValueError(
+                f"{path.name} 第 {i} 行漢字欄不是單字（欄序選對了嗎？）: {ln!r}"
+            )
         first_code.setdefault(ch, code)
         key = (ch, code)
         if key in seen:
@@ -102,10 +146,10 @@ def parse_code_table(path: Path, layout: str = "auto") -> CodeTable:
     return CodeTable(rows=rows, first_code=first_code)
 
 
-def _detect_layout(lines: list[str]) -> str:
+def _detect_layout(lines: list[str], separator: str = "auto") -> str:
     votes = collections.Counter()
     for ln in lines[:200]:
-        parts = ln.split("\t") if "\t" in ln else ln.split()
+        parts = [p for p in _split(ln, separator) if p != ""]
         if len(parts) < 2:
             continue
         a_code, b_code = _looks_like_code(parts[0]), _looks_like_code(parts[1])
@@ -114,7 +158,7 @@ def _detect_layout(lines: list[str]) -> str:
         elif b_code and not a_code:
             votes["char-code"] += 1
     if not votes:
-        raise ValueError("無法自動判斷碼表欄位順序，請用 layout= 指定")
+        raise ValueError("無法自動判斷欄位順序，請明確指定 layout（char-code / code-char）")
     return votes.most_common(1)[0][0]
 
 
@@ -160,11 +204,13 @@ def convert(
     code_table: Path,
     *,
     layout: str = "auto",
+    separator: str = "auto",
+    encoding: str = "utf-8",
     phrases: Path | None = None,
     char_weight_base: int = CHAR_WEIGHT_BASE,
     ext_a_to_lex: bool = True,
 ) -> ConvertResult:
-    ct = parse_code_table(code_table, layout)
+    ct = parse_code_table(code_table, layout, separator=separator, encoding=encoding)
 
     def goes_to_lex(ch: str) -> bool:
         cp = ord(ch)

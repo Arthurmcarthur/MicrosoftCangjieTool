@@ -183,16 +183,19 @@ def validate_ext(data: bytes, path: str = "<ext>") -> Report:
 # ---- 文字碼表驗證 -----------------------------------------------------
 
 
-def validate_code_table(path: Path, layout: str = "auto",
+def validate_code_table(path: Path, layout: str = "auto", *,
+                        separator: str = "auto", encoding: str = "utf-8",
                         weight_base: int = 14_000_000) -> Report:
     r = Report("code-table", str(path))
     from . import convert as _convert
 
     try:
-        ct = _convert.parse_code_table(path, layout)
+        ct = _convert.parse_code_table(path, layout, separator=separator,
+                                       encoding=encoding)
     except (ValueError, OSError) as e:
         r.add("error", str(e))
         return r
+    r.info["格式"] = f"欄序={layout} 分隔={separator} 編碼={encoding}"
 
     r.info["列（去重後）"] = len(ct.rows)
     r.info["相異字"] = len(ct.first_code)
@@ -296,7 +299,8 @@ def validate_set(paths: list[Path]) -> Report:
 
 
 def validate_path(path: Path, *, spd: Path | None = None,
-                  layout: str = "auto") -> Report:
+                  layout: str = "auto", separator: str = "auto",
+                  encoding: str = "utf-8") -> Report:
     tag = classify(path)
     data = path.read_bytes() if not tag.endswith("text") and tag != "code-table" else None
     spd_codes = None
@@ -314,7 +318,8 @@ def validate_path(path: Path, *, spd: Path | None = None,
         return validate_ext(data, str(path))
     if tag in ("code-table", "spd-text", "lex-text", "ext-text"):
         if tag == "code-table":
-            return validate_code_table(path, layout)
+            return validate_code_table(path, layout, separator=separator,
+                                       encoding=encoding)
         r = Report(tag, str(path))
         r.add("info", "文字中介檔；用 convert / pack 產生二進位後再驗證")
         return r

@@ -30,6 +30,17 @@
 5. `--profile 2004` 會丟掉 > 5 codepoint 的詞。**不影響 SPD**：SPD 只收單字碼，
    單字不會因長度被濾；詞組逐字碼 ⊆ 單字碼。
 
+## 輸入純文字碼表格式
+
+一行一字，`#` 開頭為註解。三個維度可由使用者指定（`parse_code_table` /
+CLI `--layout/--sep/--encoding` / GUI 下拉）：
+
+- **欄序** `auto | char-code | code-char`：`char-code`＝漢字在左，`code-char`＝碼在左。
+  `auto` 看前 200 行投票（哪一欄整欄是 ASCII 字母就是碼）。
+- **分隔** `auto | tab | space`：`space` = `str.split()`（任意空白）。
+  `auto` = 有 tab 用 tab，否則任意空白。
+- **編碼**：任何 Python codec 名；`utf-8` 會自動改用 `utf-8-sig` 容忍 BOM。
+
 ## 轉換規則（`convert.py` 預設，可調參數）
 
 - 單字全用輸入碼表的碼。一字多碼：每個碼各出一條（全部可打）。
