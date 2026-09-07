@@ -146,7 +146,7 @@ cjtoolkit transcode ChtChangjie.spd ChtChangjie.lex ChtChangjieExt.lex --to 2004
 | 合法碼表 | `ChtCangjie.spd` | `ChtChangjie.spd` |
 | 擴充區字 | `ChtCangjieExt.lex` | `ChtChangjieExt.lex` |
 
-Windows 10 2004及之後的版本、Windows 11默認使用「新版」碼表。但如果開啓「使用以前版本的微軟倉頡輸入法」開關，系統會調用舊版輸入法程序和文件。
+Windows 10 2004及之後的版本、Windows 11預設使用「新版」碼表。但如果開啓「使用以前版本的微軟倉頡輸入法」開關，系統會調用舊版輸入法程式和文件。
 
 舊版目錄裡的檔案屬 TrustedInstaller，手動替換要先 `takeown` / `icacls` 取得所有權（`cjtoolkit install` 會自動處理）。
 
