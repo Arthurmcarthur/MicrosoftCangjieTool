@@ -253,8 +253,7 @@ class MainWindow(QMainWindow):
             f"即將把 {' + '.join(profiles)} 碼表寫入系統目錄。\n"
             "原檔會先備份到目標目錄的 Backup_<時間戳>。")
         box.setInformativeText(_install.PRE_INSTALL_ADVICE)
-        cb = QCheckBox("我已切換成「英文（美國）」鍵盤或其他非微軟倉頡輸入法"
-                       "（不是把倉頡切到英文模式）")
+        cb = QCheckBox("我已切換成「英文（美國）」鍵盤或其他非微軟的輸入法")
         box.setCheckBox(cb)
         box.setStandardButtons(QMessageBox.StandardButton.Ok
                                | QMessageBox.StandardButton.Cancel)
@@ -264,8 +263,9 @@ class MainWindow(QMainWindow):
         if not cb.isChecked():
             QMessageBox.warning(
                 self, "尚未切換輸入法",
-                "請把輸入法整個切換成「英文（美國）」鍵盤或其他非微軟倉頡輸入法，\n"
-                "不是把微軟倉頡切到英文模式——那樣碼表檔仍被佔用。\n"
+                "請把輸入法切換成「英文（美國）」鍵盤或其他非微軟的輸入法。\n"
+                "請勿簡單將微軟倉頡切換到英文模式，這種做法無法解除佔用；\n"
+                "微軟速成等也共用同一框架，同樣會佔用碼表檔。\n"
                 "勾選確認後再按「開始安裝」。")
             return
 

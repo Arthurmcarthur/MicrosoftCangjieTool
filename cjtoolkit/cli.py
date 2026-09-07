@@ -107,8 +107,8 @@ def _cmd_install(args: argparse.Namespace) -> int:
     interactive = not args.yes and not args.dry_run and not getattr(args, "_child", False)
     if interactive:
         print(_install.PRE_INSTALL_ADVICE)
-        prompt = ("已切換成「英文（美國）」鍵盤或其他非微軟倉頡輸入法了嗎？"
-                  "（不是切英文模式）輸入 y 繼續 [y/N] ")
+        prompt = ("已切換成「英文（美國）」鍵盤或其他非微軟的輸入法了嗎？"
+                  "（勿只把倉頡切英文模式）輸入 y 繼續 [y/N] ")
         if input(prompt).strip().lower() != "y":
             print("已取消。請先切換輸入法再重試。")
             return 1
