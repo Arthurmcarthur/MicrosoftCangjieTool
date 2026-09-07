@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
             ("both", "兩者皆要"),
         ):
             self.profile.addItem(label, value)
-        self.phrases_box = QCheckBox("併入微軟詞庫（44572 詞）")
+        self.phrases_box = QCheckBox("併入微軟聯想詞詞庫（44572 條）")
         self.phrases_box.setChecked(_convert.bundled_phrases().exists())
         self.phrases_box.setEnabled(_convert.bundled_phrases().exists())
         self.convert_btn = QPushButton("轉換並打包")

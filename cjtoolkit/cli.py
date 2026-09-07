@@ -41,7 +41,7 @@ def _resolve_phrases(args: argparse.Namespace) -> Path | None:
         return None
     if args.phrases:
         return Path(args.phrases)
-    p = _convert.bundled_phrases()          # 預設帶內附的微軟詞庫
+    p = _convert.bundled_phrases()          # 預設帶內附的微軟聯想詞詞庫
     return p if p.exists() else None
 
 
@@ -229,8 +229,8 @@ def build_parser() -> argparse.ArgumentParser:
     def add_convert_args(sp: argparse.ArgumentParser) -> None:
         sp.add_argument("table", help="txt 碼表")
         sp.add_argument("--phrases",
-                        help="自訂詞表 TSV（預設用內附的微軟詞庫 44572 條）")
-        sp.add_argument("--no-phrases", action="store_true", help="不併入任何詞組")
+                        help="自訂聯想詞 TSV（預設用內附的微軟聯想詞詞庫 44572 條）")
+        sp.add_argument("--no-phrases", action="store_true", help="不併入任何聯想詞")
         add_format_args(sp)
         sp.add_argument("--weight-base", type=int, default=_convert.CHAR_WEIGHT_BASE)
         sp.add_argument("--ext-a-separate", action="store_true",

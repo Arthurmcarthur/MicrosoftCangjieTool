@@ -191,7 +191,7 @@ def load_phrases(path: Path) -> list[tuple[str, int | None]]:
 
 
 def bundled_phrases() -> Path:
-    """本專案內附的微軟詞表（44572 條，自官方 ChtChangjie.lex 解出，只含 text+weight）。"""
+    """本專案內附的微軟聯想詞詞表（44572 條，自官方 ChtChangjie.lex 解出，只含 text+weight）。"""
     return Path(__file__).with_name("data") / "ms-phrases.tsv"
 
 
