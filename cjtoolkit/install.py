@@ -216,12 +216,16 @@ def stop_processes(names: tuple[str, ...] = IME_PROCESSES) -> list[str]:
         except Exception as e:  # noqa: BLE001
             msgs.append(f"結束 {n} 失敗：{e}")
             continue
-        if r.returncode == 0 and not is_running(n):
-            msgs.append(f"已結束 {n}")
+        if r.returncode == 0:
+            # taskkill 成功。ChtIME / ctfmon 常被系統立即重啟，這是正常的——
+            # 重點是「刪除原檔的那一刻」它沒鎖住檔案，copy 成功即可。
+            msgs.append(f"已結束 {n}" + ("（系統已立即重啟，屬正常）" if is_running(n) else ""))
+        elif r.returncode == 128:
+            msgs.append(f"{n} 未在執行")
         else:
-            detail = (r.stderr or r.stdout).strip().splitlines()
-            msgs.append(f"⚠ {n} 未能結束：{detail[-1] if detail else r.returncode}"
-                        "（可能被系統立即重啟；請確認已切到英文輸入法）")
+            detail = ((r.stderr or "") + (r.stdout or "")).strip().splitlines()
+            msgs.append(f"⚠ 結束 {n} 失敗（代碼 {r.returncode}）："
+                        f"{detail[-1] if detail else ''}")
     return msgs
 
 
@@ -231,13 +235,26 @@ def kill_cht_ime() -> list[str]:
 
 
 def start_ctfmon() -> list[str]:
+    """重啟 ctfmon。從提權行程直接啟動會 WinError 740（ctfmon 要一般權限），
+    改用 `runas /trustlevel:0x20000` 以受限（非提權）權杖啟動。"""
     if not is_windows():
         return []
+    sysroot = os.environ.get("SystemRoot", r"C:\Windows")
+    ctfmon = str(Path(sysroot) / "System32" / "ctfmon.exe")
     try:
-        subprocess.Popen(["ctfmon.exe"], close_fds=True)
+        subprocess.Popen([ctfmon], close_fds=True)
         return ["已重啟 ctfmon"]
+    except OSError:
+        pass
+    try:
+        r = subprocess.run(["runas", "/trustlevel:0x20000", ctfmon],
+                           capture_output=True, text=True, timeout=15)
+        if r.returncode == 0:
+            return ["已以一般權限重啟 ctfmon"]
+        return [f"重啟 ctfmon 未成功（請登出再登入，或按 Win+R 執行 ctfmon）："
+                f"{(r.stderr or r.stdout).strip()}"]
     except Exception as e:  # noqa: BLE001
-        return [f"重啟 ctfmon 失敗（可登出再登入）：{e}"]
+        return [f"重啟 ctfmon 失敗（請登出再登入）：{e}"]
 
 
 # ---- HKSCS 開關 --------------------------------------------------
@@ -354,7 +371,7 @@ def apply_install(plan: InstallPlan, *, dry_run: bool = False,
     if not plan.copies:
         msgs.append("沒有可安裝的檔案。")
         return msgs
-    if not is_admin():
+    if not is_admin() and not dry_run:
         msgs.append("⚠ 非管理員，覆寫會失敗；請提權後重試。")
 
     plan.dst_dir.mkdir(parents=True, exist_ok=True)
