@@ -14,7 +14,7 @@
 
 微軟把辭典拆成三個互相耦合的二進位檔，格式無公開文件、且有數個會讓輸入法
 **卡死或候選錯位**的隱藏約束。本工具的 `codec` 已逐位元對齊三個官方 `.spd`
-樣本，並在 Windows 實機驗證過那些約束（詳見 [`CLAUDE.md`](CLAUDE.md)）。
+樣本，並在 Windows 實機驗證過那些約束（詳見 [`docs/format-notes.md`](docs/format-notes.md)）。
 
 ## 安裝
 
@@ -60,7 +60,7 @@ cjtoolkit-gui
 - 重碼順序 = 碼表行序。
 - 詞組（`--phrases`）沿用微軟詞表，逐字換成你碼表的碼，保留原權重。
 
-細節與可調參數見 [`CLAUDE.md`](CLAUDE.md)。
+細節與可調參數見 [`docs/format-notes.md`](docs/format-notes.md)。
 
 ## 致謝
 

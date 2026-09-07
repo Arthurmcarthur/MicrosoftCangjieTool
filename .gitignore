@@ -1,4 +1,14 @@
+# OS / 編輯器
 .DS_Store
+~*
+*~
+.*.sw[a-p]
+*.sw[a-p]
+
+# 本機工作筆記
+CLAUDE.md
+
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -7,8 +17,12 @@ dist/
 .venv/
 venv/
 .pytest_cache/
+
+# 打包
 .nuitka/
 *.build/
 *.dist/
+
+# 產出
 out/
 cj-backup/
