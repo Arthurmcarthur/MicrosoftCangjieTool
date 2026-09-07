@@ -3,13 +3,18 @@
 三頁：來源（本地檔 / URL）→ 轉換設定 → 產出/安裝。
 安裝頁在非 Windows 平台停用（見 install.is_windows）。
 
-執行：  python -m cjtoolkit.gui.app    或    cjtoolkit-gui
+執行：  cjtoolkit-gui    或    python -m cjtoolkit.gui.app
 需要：  pip install "cjtoolkit[gui]"
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+
+# 允許 `python cjtoolkit/gui/app.py` 直接跑（開發方便）：補上 repo 根到 sys.path
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    __package__ = "cjtoolkit.gui"
 
 try:
     from PySide6.QtWidgets import (
