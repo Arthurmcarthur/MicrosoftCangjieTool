@@ -61,14 +61,11 @@ CLI `--layout/--sep/--encoding` / GUI 下拉）：
 
 ## 安裝（`install.py`）
 
-流程：UAC 提權 → 結束 `ChtIME`/`MicrosoftIME` → 備份 → 刪除+複製 →
-（可選）開 HKSCS → 重啟 `ctfmon`。
+流程：UAC 提權 → 結束 `ChtIME`/`MicrosoftIME` → 備份 → 刪除+複製 → 重啟 `ctfmon`。
 
 - **新版 `C:\Windows\System32\zh-hk`：提權即可**（`apply_install` 直接刪+複製）。
 - **舊版 `C:\Windows\InputMethod\CHT`：原檔屬 TrustedInstaller**，覆寫被拒時
   自動 `takeown /f` + `icacls /grant %USERNAME%:F` 再試（`needs_ownership=True`）。
-- HKSCS 擴充區開關：`HKCU\Software\Microsoft\IME\15.0\CHT\Cangjie` →
-  `Enable HKSCS` = 1（DWORD）。`set_hkscs()`。
 - 提權：非管理員時用 `run_elevated()`（`ShellExecuteExW "runas"`）開一個管理員
   子行程跑 `python -m cjtoolkit install … --_child`，**不重跑呼叫者本身**。
   從原始碼跑時要把 `source_cwd()`（含 `cjtoolkit/` 的資料夾）當子行程工作目錄，

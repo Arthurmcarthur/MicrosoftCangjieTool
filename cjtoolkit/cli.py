@@ -5,7 +5,7 @@
     cjtoolkit pack     <outdir> [--profile both]          # 三檔文本 → 二進位套件
     cjtoolkit build    <table.txt> [...] -o outdir        # convert + pack 一步到位
     cjtoolkit transcode <spd> <lex/sdc> [ext] -o outdir   # 一整套二進位 → 另一世代
-    cjtoolkit install  <pack_dir> [--profile 2004] [--enable-hkscs] [--dry-run]  # 僅 Windows
+    cjtoolkit install  <pack_dir> [--profile 2004] [--dry-run]    # 僅 Windows
     cjtoolkit uninstall <backup_dir> [--profile 2004]     # 從備份還原
     cjtoolkit codec    ...                                # 直通 vendored codec
 
@@ -156,8 +156,6 @@ def _cmd_install(args: argparse.Namespace) -> int:
             "install", str(args.pack_dir), "--profile", args.profile,
             "--no-elevate", "--yes", "--_child",
         ]
-        if args.enable_hkscs:
-            child.append("--enable-hkscs")
         if args.no_stop_ime:
             child.append("--no-stop-ime")
         if args.no_restart:
@@ -179,7 +177,6 @@ def _cmd_install(args: argparse.Namespace) -> int:
             Path(args.pack_dir),
             _install.resolve_profiles(args.profile),
             backup_root=Path(args.backup_dir) if args.backup_dir else None,
-            enable_hkscs=args.enable_hkscs,
             stop_ime=not args.no_stop_ime,
             restart_ctfmon=not args.no_restart,
             force=args.force,
@@ -280,8 +277,6 @@ def build_parser() -> argparse.ArgumentParser:
                      help="即使系統版本不支援也照裝（危險）")
     ins.add_argument("--backup-dir", default=None,
                      help="備份位置（預設存到目標目錄的 Backup_<時間戳>）")
-    ins.add_argument("--enable-hkscs", action="store_true",
-                     help="安裝後開啟 HKCU 的『Enable HKSCS』擴充區開關")
     ins.add_argument("--no-stop-ime", action="store_true", help="不要結束 IME 行程")
     ins.add_argument("--no-restart", action="store_true", help="裝完不重啟 ctfmon")
     ins.add_argument("--no-elevate", action="store_true", help="不自動 UAC 提權")

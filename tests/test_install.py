@@ -17,7 +17,6 @@ def test_non_windows_guards():
         pytest.skip("Windows")
     assert install.is_admin() is False
     assert install.relaunch_as_admin() is False
-    assert install.get_hkscs() is None
     assert "非 Windows" in install.stop_processes()[0]
     with pytest.raises(install.PlatformError):
         install.require_windows()

@@ -116,8 +116,6 @@ class MainWindow(QMainWindow):
             ("both", "兩者皆要"),
         ):
             self.profile.addItem(label, value)
-        self.hkscs_box = QCheckBox("安裝後開 HKSCS 擴充區")
-        self.hkscs_box.setChecked(True)
         self.phrases_box = QCheckBox("併入微軟詞庫（44572 詞）")
         self.phrases_box.setChecked(_convert.bundled_phrases().exists())
         self.phrases_box.setEnabled(_convert.bundled_phrases().exists())
@@ -136,10 +134,6 @@ class MainWindow(QMainWindow):
         row2.addStretch(1)
         row3 = QHBoxLayout()
         row3.addWidget(self.phrases_box)
-        if _install.is_windows():
-            row3.addWidget(self.hkscs_box)
-        else:
-            self.hkscs_box.hide()
         row3.addStretch(1)
 
         central = QWidget()
@@ -338,9 +332,7 @@ class MainWindow(QMainWindow):
             self._say("執行安裝（目前已是管理員）…")
             QApplication.processEvents()
             try:
-                msgs = _install.full_install(
-                    self.pack_dir, profiles,
-                    enable_hkscs=self.hkscs_box.isChecked())
+                msgs = _install.full_install(self.pack_dir, profiles)
             except Exception as e:  # noqa: BLE001
                 self._say(f"安裝失敗：{e}")
                 return
@@ -359,8 +351,6 @@ class MainWindow(QMainWindow):
             "--profile", pchoice, "--yes", "--no-elevate",
             "--log", str(log_path),
         ]
-        if self.hkscs_box.isChecked():
-            argv.append("--enable-hkscs")
 
         self._say("UAC 提權中，請在提示視窗按「是」…")
         QApplication.processEvents()

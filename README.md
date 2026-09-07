@@ -43,13 +43,13 @@ cjtoolkit pack out --profile both
 cjtoolkit transcode ChtChangjie.spd ChtChangjie.lex ChtChangjieExt.lex --to 2004 -o out
 
 # 安裝（僅 Windows；非管理員會自動跳 UAC；--profile 預設 auto 依系統版本判定）
-cjtoolkit install out/pack --enable-hkscs
+cjtoolkit install out/pack
 cjtoolkit install out/pack --dry-run          # 先看會做什麼
 cjtoolkit uninstall "C:\Windows\System32\zh-hk\Backup_20260907-120000" --profile 2004
 ```
 
 安裝流程：提權 → 結束 `ChtIME`/`MicrosoftIME` → 備份原檔到目標目錄的
-`Backup_<時間戳>\` → 刪除+複製 → （`--enable-hkscs`）開擴充區開關 → 重啟 `ctfmon`。
+`Backup_<時間戳>\` → 刪除+複製 → 重啟 `ctfmon`。
 `legacy`（`InputMethod\CHT`）原檔屬 TrustedInstaller，覆寫失敗時自動 `takeown`/`icacls`。
 
 ### 純文字碼表格式

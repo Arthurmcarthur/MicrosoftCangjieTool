@@ -13,8 +13,7 @@
      · 2004（System32\\zh-hk）：提權即可
      · legacy（InputMethod\\CHT）：原檔屬 TrustedInstaller，覆寫失敗時
        用 takeown /f + icacls /grant 取得所有權再試
-  5. （可選）開啟 HKCU 的「Enable HKSCS」讓擴充區字可打
-  6. 重啟 ctfmon，提示使用者重新選字或登出
+  5. 重啟 ctfmon，提示使用者重新選字或登出
 
 參考 Eden5Wu/Windows-Cangjie-Updater（PowerShell）的做法，實作為 Python。
 """
@@ -53,10 +52,6 @@ PROFILES = {
 #: （C:\Windows\System32\InputMethod\CHT\ChtIME.exe），它才是鎖住碼表檔的那個。
 #: 不動 ctfmon —— 殺了它語言列會壞，而且從提權行程很難乾淨地把它拉回來。
 IME_PROCESSES = ("ChtIME", "MicrosoftIME")
-
-#: HKSCS（擴充區）開關：HKCU\Software\Microsoft\IME\15.0\CHT\Cangjie\Enable HKSCS = 1
-HKSCS_KEY = r"Software\Microsoft\IME\15.0\CHT\Cangjie"
-HKSCS_VALUE = "Enable HKSCS"
 
 PRE_INSTALL_ADVICE = (
     "請先把輸入法切換成「英文（美國）」鍵盤，或其他非微軟的輸入法。\n"
@@ -328,39 +323,6 @@ def start_ctfmon() -> list[str]:
         return ["ctfmon 未在執行；請登出再登入，或按 Win+R 執行 ctfmon"]
 
 
-# ---- HKSCS 開關 --------------------------------------------------
-
-
-def get_hkscs() -> bool | None:
-    if not is_windows():
-        return None
-    import winreg
-
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, HKSCS_KEY) as k:
-            val, _ = winreg.QueryValueEx(k, HKSCS_VALUE)
-            return bool(val)
-    except FileNotFoundError:
-        return False
-    except OSError:
-        return None
-
-
-def set_hkscs(enable: bool = True) -> list[str]:
-    if not is_windows():
-        return ["非 Windows，略過 HKSCS 開關"]
-    import winreg
-
-    try:
-        k = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, HKSCS_KEY, 0,
-                               winreg.KEY_SET_VALUE)
-        with k:
-            winreg.SetValueEx(k, HKSCS_VALUE, 0, winreg.REG_DWORD, 1 if enable else 0)
-        return [f"HKSCS 擴充區開關已設為 {'開' if enable else '關'}"]
-    except OSError as e:
-        return [f"設定 HKSCS 開關失敗：{e}"]
-
-
 # ---- 所有權（legacy 用）---------------------------------------------
 
 
@@ -512,7 +474,6 @@ def full_install(
     profiles: list[str],
     *,
     backup_root: Path | None = None,
-    enable_hkscs: bool = False,
     stop_ime: bool = True,
     restart_ctfmon: bool = True,
     force: bool = False,
@@ -548,8 +509,6 @@ def full_install(
                 msgs.append(f"已備份 {prof} 原檔 → {b}")
         msgs.append(f"— {prof} → {plan.dst_dir}")
         msgs += apply_install(plan, dry_run=dry_run)
-    if enable_hkscs and not dry_run:
-        msgs += set_hkscs(True)
     if restart_ctfmon and not dry_run:
         msgs += start_ctfmon()
     return msgs
