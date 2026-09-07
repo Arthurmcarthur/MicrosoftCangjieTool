@@ -147,4 +147,4 @@ pytest
 
 ## 授權
 
-見 [`LICENSE`](LICENSE)。
+MIT，見 [`LICENSE`](LICENSE)。
