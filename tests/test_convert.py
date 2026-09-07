@@ -42,6 +42,23 @@ def test_weight_monotonic_and_capped(tmp_path):
     assert all(0 < w < (1 << 24) for w in weights)
 
 
+def test_bundled_phrases_present_and_loadable():
+    p = convert.bundled_phrases()
+    assert p.exists()
+    ph = convert.load_phrases(p)
+    assert len(ph) > 40000
+    assert all(len(t) >= 2 for t, _ in ph)
+
+
+def test_load_phrases_accepts_2_and_3_col(tmp_path):
+    two = tmp_path / "2.tsv"
+    two.write_text("日本\t123\n", encoding="utf-8")
+    assert convert.load_phrases(two) == [("日本", 123)]
+    three = tmp_path / "3.tsv"
+    three.write_text("日本\tA DM\t123\n", encoding="utf-8")
+    assert convert.load_phrases(three) == [("日本", 123)]
+
+
 def test_supplementary_plane_goes_to_ext(tmp_path):
     t = _write(tmp_path, "t.txt", "\U0002F81A\tA\n日\tA\n")
     res = convert.convert(t)

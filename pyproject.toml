@@ -25,5 +25,8 @@ cjtoolkit-gui = "cjtoolkit.gui.app:main"
 [tool.setuptools]
 packages = ["cjtoolkit", "cjtoolkit.gui"]
 
+[tool.setuptools.package-data]
+cjtoolkit = ["data/*.tsv"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

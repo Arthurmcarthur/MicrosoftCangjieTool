@@ -166,22 +166,33 @@ def _detect_layout(lines: list[str], separator: str = "auto") -> str:
 
 
 def load_phrases(path: Path) -> list[tuple[str, int | None]]:
-    """微軟詞表 TSV 的多字詞：[(text, weight)]，保留原順序。"""
+    """詞表的多字詞：[(text, weight)]，保留原順序。
+
+    接受兩種欄位配置：
+      text <TAB> weight               （本專案內附的 ms-phrases.tsv）
+      text <TAB> codes <TAB> weight    （ime_codec decode 出的 lex TSV）
+    """
     out: list[tuple[str, int | None]] = []
-    with path.open(encoding="utf-8") as f:
-        for ln in f:
-            if ln.startswith("#"):
-                continue
-            ln = ln.rstrip("\n")
-            if not ln:
-                continue
-            parts = ln.split("\t")
-            text = parts[0]
-            if len(text) < 2:
-                continue
-            weight = int(parts[2]) if len(parts) > 2 and parts[2] else None
-            out.append((text, weight))
+    for ln in path.read_text(encoding="utf-8").splitlines():
+        if ln.startswith("#") or not ln.strip():
+            continue
+        parts = ln.split("\t")
+        text = parts[0]
+        if len(text) < 2:
+            continue
+        w_field = ""
+        if len(parts) == 2:
+            w_field = parts[1]
+        elif len(parts) >= 3:
+            w_field = parts[2]
+        weight = int(w_field) if w_field.strip().lstrip("-").isdigit() else None
+        out.append((text, weight))
     return out
+
+
+def bundled_phrases() -> Path:
+    """本專案內附的微軟詞表（44572 條，自官方 ChtChangjie.lex 解出，只含 text+weight）。"""
+    return Path(__file__).with_name("data") / "ms-phrases.tsv"
 
 
 # ---- 轉換 --------------------------------------------------------------

@@ -35,13 +35,22 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 0 if rep.ok else 1
 
 
+def _resolve_phrases(args: argparse.Namespace) -> Path | None:
+    if args.no_phrases:
+        return None
+    if args.phrases:
+        return Path(args.phrases)
+    p = _convert.bundled_phrases()          # 預設帶內附的微軟詞庫
+    return p if p.exists() else None
+
+
 def _cmd_convert(args: argparse.Namespace) -> int:
     res = _convert.convert(
         Path(args.table),
         layout=args.layout,
         separator=args.sep,
         encoding=args.encoding,
-        phrases=Path(args.phrases) if args.phrases else None,
+        phrases=_resolve_phrases(args),
         char_weight_base=args.weight_base,
         ext_a_to_lex=not args.ext_a_separate,
     )
@@ -193,7 +202,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     def add_convert_args(sp: argparse.ArgumentParser) -> None:
         sp.add_argument("table", help="txt 碼表")
-        sp.add_argument("--phrases", help="微軟詞表 TSV（可選，沿用詞組並改碼）")
+        sp.add_argument("--phrases",
+                        help="自訂詞表 TSV（預設用內附的微軟詞庫 44572 條）")
+        sp.add_argument("--no-phrases", action="store_true", help="不併入任何詞組")
         add_format_args(sp)
         sp.add_argument("--weight-base", type=int, default=_convert.CHAR_WEIGHT_BASE)
         sp.add_argument("--ext-a-separate", action="store_true",

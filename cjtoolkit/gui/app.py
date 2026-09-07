@@ -102,6 +102,9 @@ class MainWindow(QMainWindow):
         self.profile.addItems(["2004", "legacy", "both"])
         self.hkscs_box = QCheckBox("安裝後開 HKSCS 擴充區")
         self.hkscs_box.setChecked(True)
+        self.phrases_box = QCheckBox("併入微軟詞庫（44572 詞）")
+        self.phrases_box.setChecked(_convert.bundled_phrases().exists())
+        self.phrases_box.setEnabled(_convert.bundled_phrases().exists())
         self.convert_btn = QPushButton("轉換並打包")
         self.convert_btn.clicked.connect(self._convert)
         self.convert_btn.setEnabled(False)
@@ -116,9 +119,12 @@ class MainWindow(QMainWindow):
         row2.addWidget(self.install_btn)
         row2.addStretch(1)
         row3 = QHBoxLayout()
-        row3.addWidget(self.hkscs_box)
+        row3.addWidget(self.phrases_box)
+        if _install.is_windows():
+            row3.addWidget(self.hkscs_box)
+        else:
+            self.hkscs_box.hide()
         row3.addStretch(1)
-        self.row3 = row3
 
         central = QWidget()
         v = QVBoxLayout(central)
@@ -127,9 +133,8 @@ class MainWindow(QMainWindow):
         v.addLayout(row1)
         v.addLayout(fmt_row)
         v.addLayout(row2)
-        if _install.is_windows():
-            v.addLayout(row3)
-        else:
+        v.addLayout(row3)
+        if not _install.is_windows():
             v.addWidget(QLabel("非 Windows：可轉換打包，安裝功能停用。"))
         v.addWidget(QLabel("訊息"))
         v.addWidget(self.log)
@@ -218,8 +223,10 @@ class MainWindow(QMainWindow):
         layout, sep, enc = self._fmt()
         try:
             if self.report.kind == "code-table":
+                phrases = (_convert.bundled_phrases()
+                           if self.phrases_box.isChecked() else None)
                 res = _convert.convert(self.files[0], layout=layout,
-                                       separator=sep, encoding=enc)
+                                       separator=sep, encoding=enc, phrases=phrases)
                 paths = _convert.write_result(res, outdir)
                 self._say(f"單字 {res.n_char}  詞組 {res.n_phrase}  "
                           f"擴充 {res.n_ext}  SPD 碼 {res.n_codes}")
