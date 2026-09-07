@@ -155,18 +155,23 @@ def backup_existing(plan: InstallPlan, backup_root: Path) -> Path | None:
 def apply_install(plan: InstallPlan, *, dry_run: bool = False) -> list[str]:
     """實際複製。回傳訊息行。呼叫前應已 require_windows() + 提權。"""
     require_windows()
+    needs_own = PROFILES[plan.profile]["needs_ownership"]
     msgs: list[str] = []
     if plan.missing_src:
         msgs.append(f"缺少來源檔（跳過）：{', '.join(plan.missing_src)}")
     if not is_admin():
-        msgs.append("⚠ 目前非系統管理員；覆寫 System32 會失敗。請以管理員重試。")
+        msgs.append("⚠ 目前非系統管理員；覆寫目標目錄會失敗。請以管理員重試。")
+    if needs_own:
+        msgs.append(f"⚠ {plan.dst_dir} 原檔屬 TrustedInstaller，"
+                    "尚未實作 takeown/icacls 取得所有權，覆寫可能失敗。")
     plan.dst_dir.mkdir(parents=True, exist_ok=True)
     for src, dst in plan.copies:
         if dry_run:
             msgs.append(f"[dry-run] {src.name} → {dst}")
             continue
-        # TODO: System32\zh-hk 原檔屬 TrustedInstaller，需先 takeown / icacls
-        #       或呼叫 MoveFileEx 排程重開機取代。目前直接 copy，失敗則提示。
+        # TODO(legacy)：InputMethod\CHT 原檔屬 TrustedInstaller，需先
+        #   takeown /f + icacls /grant，或 MoveFileEx 排程重開機取代。
+        #   2004（System32\zh-hk）提權即可，直接 copy。
         try:
             shutil.copy2(src, dst)
             msgs.append(f"已安裝 {dst}")
