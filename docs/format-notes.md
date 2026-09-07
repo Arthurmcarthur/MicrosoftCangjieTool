@@ -30,6 +30,15 @@
 5. `--profile 2004` 會丟掉 > 5 codepoint 的詞。**不影響 SPD**：SPD 只收單字碼，
    單字不會因長度被濾；詞組逐字碼 ⊆ 單字碼。
 
+## 跨世代轉換（`transcode`）
+
+一整套二進位（spd + lex/sdc + 可選 Ext.lex）→ 另一世代：decode（用配套 spd
+查 spell index）→ 針對目標 profile 重新 `encode_lex`（max_len/force_lcount 不同）
+→ 配套 spd / Ext.lex 直接重編（byte-exact，Ext.lex 時間戳沿用來源）。
+
+**legacy → 2004 會丟 > 5 字的詞**（官方樣本 120 條）；反向轉回來不會復原，
+所以別把 2004 當中繼。
+
 ## 輸入純文字碼表格式
 
 一行一字，`#` 開頭為註解。三個維度可由使用者指定（`parse_code_table` /

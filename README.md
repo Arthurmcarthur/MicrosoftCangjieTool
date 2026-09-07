@@ -39,6 +39,9 @@ cjtoolkit build cangjie.txt --phrases ms-phrases.tsv -o out --profile both
 cjtoolkit convert cangjie.txt -o out
 cjtoolkit pack out --profile both
 
+# 已是一整套二進位 → 轉成另一世代（新舊互轉）
+cjtoolkit transcode ChtChangjie.spd ChtChangjie.lex ChtChangjieExt.lex --to 2004 -o out
+
 # 安裝（僅 Windows；非管理員會自動跳 UAC；--profile 預設 auto 依系統版本判定）
 cjtoolkit install out/pack --enable-hkscs
 cjtoolkit install out/pack --dry-run          # 先看會做什麼

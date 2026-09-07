@@ -329,3 +329,80 @@ def write_result(result: ConvertResult, outdir: Path, stem: str = "cangjie") -> 
     paths["spd"].write_text(result.spd_text, encoding="utf-8")
     paths["ext"].write_text(result.ext_text, encoding="utf-8")
     return paths
+
+
+# ---- 跨世代轉換（已是二進位的一整套 → 另一世代）-----------------------
+
+
+@dataclass
+class TranscodeResult:
+    written: list[Path]
+    n_entries: int
+    n_codes: int
+    n_ext: int
+    dropped: dict[str, int]          # {profile: 因詞長被丟的詞數}
+
+
+def _pick_set(files: list[Path]) -> tuple[bytes, bytes, bytes | None]:
+    """從一堆檔案裡挑出 spd / lex(或sdc) / ext，回傳三份 bytes（ext 可為 None）。"""
+    from . import codec
+
+    spd = lex = ext = None
+    for p in files:
+        raw = p.read_bytes()
+        tag = codec.detect_magic(raw)
+        if tag == "spd" and spd is None:
+            spd = raw
+        elif tag == "lex" and lex is None:   # detect_magic 對 sdc 也回 "lex"
+            lex = raw
+        elif tag == "ext" and ext is None:
+            ext = raw
+    if spd is None or lex is None:
+        raise ValueError("需要一整套：至少 spd + lex/sdc（Ext.lex 可選）")
+    return spd, lex, ext
+
+
+def transcode_set(files: list[Path], out_dir: Path,
+                  target: str = "both") -> TranscodeResult:
+    """把一整套二進位（spd + lex/sdc + 可選 Ext.lex）重新編成目標世代。
+
+    target: "2004" | "legacy" | "both"。輸出到 out_dir/（檔名依世代）。
+    """
+    from . import codec
+
+    profiles = ["2004", "legacy"] if target == "both" else [target]
+    spd_b, lex_b, ext_b = _pick_set(files)
+
+    spd_codes = codec.decode_spd(spd_b)
+    lex = codec.decode_lex(lex_b, spd_codes)
+    ext_entries = codec.decode_ext(ext_b) if ext_b else None
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    spd_blob = codec.encode_spd(spd_codes)
+    ext_blob = None
+    if ext_entries:
+        import struct
+        ts = struct.unpack_from("<I", ext_b, 32)[0] if len(ext_b) >= 36 else None
+        ext_blob = codec.encode_ext(ext_entries, timestamp=ts)
+
+    written: list[Path] = []
+    dropped: dict[str, int] = {}
+    for prof in profiles:
+        spec = codec.profile_spec(prof)
+        blob, n_drop = codec.encode_lex(lex, spd_codes, max_len=spec.max_len,
+                                        force_lcount=spec.force_lcount)
+        dropped[prof] = n_drop
+        for name, data in ((spec.dict_name, blob), (spec.spd_name, spd_blob)):
+            (out_dir / name).write_bytes(data)
+            written.append(out_dir / name)
+        if ext_blob is not None:
+            (out_dir / spec.ext_name).write_bytes(ext_blob)
+            written.append(out_dir / spec.ext_name)
+
+    return TranscodeResult(
+        written=written,
+        n_entries=len(lex.entries),
+        n_codes=len(spd_codes),
+        n_ext=len(ext_entries) if ext_entries else 0,
+        dropped=dropped,
+    )

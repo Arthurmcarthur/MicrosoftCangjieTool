@@ -4,6 +4,7 @@
     cjtoolkit convert  <table.txt> [--phrases ms.tsv] [--layout auto] -o outdir
     cjtoolkit pack     <outdir> [--profile both]          # 三檔文本 → 二進位套件
     cjtoolkit build    <table.txt> [...] -o outdir        # convert + pack 一步到位
+    cjtoolkit transcode <spd> <lex/sdc> [ext] -o outdir   # 一整套二進位 → 另一世代
     cjtoolkit install  <pack_dir> [--profile 2004] [--enable-hkscs] [--dry-run]  # 僅 Windows
     cjtoolkit uninstall <backup_dir> [--profile 2004]     # 從備份還原
     cjtoolkit codec    ...                                # 直通 vendored codec
@@ -83,6 +84,18 @@ def _cmd_pack(args: argparse.Namespace) -> int:
         argv += ["--ext", str(ext)]
     argv += ["--profile", profile, "-o", str(d / "pack")]
     return _codec.main(argv)
+
+
+def _cmd_transcode(args: argparse.Namespace) -> int:
+    files = [Path(f) for f in args.files]
+    res = _convert.transcode_set(files, Path(args.output), target=args.to)
+    print(f"詞條 {res.n_entries}  SPD 碼 {res.n_codes}  擴充 {res.n_ext}")
+    for prof, n in res.dropped.items():
+        if n:
+            print(f"  {prof}：丟掉 {n} 條過長的詞")
+    for p in res.written:
+        print(f"  {p}")
+    return 0
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
@@ -249,6 +262,14 @@ def build_parser() -> argparse.ArgumentParser:
     add_convert_args(b)
     b.add_argument("--profile", default="both", choices=["2004", "legacy", "both"])
     b.set_defaults(func=_cmd_build, outdir=None)
+
+    tc = sub.add_parser("transcode",
+                        help="已是一整套二進位 → 另一世代（lex/sdc 互轉）")
+    tc.add_argument("files", nargs="+",
+                    help="spd + lex/sdc + 可選 Ext.lex（順序不拘）")
+    tc.add_argument("--to", default="both", choices=["2004", "legacy", "both"])
+    tc.add_argument("-o", "--output", required=True, help="輸出資料夾")
+    tc.set_defaults(func=_cmd_transcode)
 
     ins = sub.add_parser("install", help="部署到 Windows IME 目錄（僅 Windows）")
     ins.add_argument("pack_dir", help="含 ChtCangjie.* / ChtChangjie.* 的資料夾")

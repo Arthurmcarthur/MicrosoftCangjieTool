@@ -262,9 +262,15 @@ class MainWindow(QMainWindow):
                 _cmd_pack(argparse.Namespace(
                     outdir=str(outdir), stem="cangjie", profile="both"))
                 self.pack_dir = outdir / "pack"
-            else:
-                self._say("二進位跨世代轉換尚未實作。")
-                return
+            else:  # kind == "set"：已是一整套二進位 → 轉成另一世代
+                packdir = outdir / "pack"
+                res = _convert.transcode_set(self.files, packdir, target="both")
+                self._say(f"詞條 {res.n_entries}  SPD 碼 {res.n_codes}  "
+                          f"擴充 {res.n_ext}")
+                for prof, n in res.dropped.items():
+                    if n:
+                        self._say(f"  {prof}：丟掉 {n} 條過長的詞")
+                self.pack_dir = packdir
         except Exception as e:  # noqa: BLE001
             self._say(f"轉換失敗：{e}")
             return
