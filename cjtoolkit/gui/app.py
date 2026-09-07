@@ -238,6 +238,11 @@ class MainWindow(QMainWindow):
 
     # ---- 轉換 ----
 
+    def _target(self) -> str:
+        """要產出哪些世代：auto → 兩套（安裝時再挑）；其餘照選。"""
+        v = self.profile.currentData()
+        return "both" if v == "auto" else v
+
     def _convert(self) -> None:
         if self.report is None or not self.report.ok:
             return
@@ -245,7 +250,9 @@ class MainWindow(QMainWindow):
         if not out:
             return
         outdir = Path(out)
+        target = self._target()
         layout, sep, enc = self._fmt()
+        self._say(f"產出世代：{target}")
         try:
             if self.report.kind == "code-table":
                 phrases = (_convert.bundled_phrases()
@@ -258,13 +265,12 @@ class MainWindow(QMainWindow):
                 from ..cli import _cmd_pack  # 重用打包流程
                 import argparse
 
-                # 打包一律產「兩套」，實際裝哪套由安裝時的系統版本決定
                 _cmd_pack(argparse.Namespace(
-                    outdir=str(outdir), stem="cangjie", profile="both"))
+                    outdir=str(outdir), stem="cangjie", profile=target))
                 self.pack_dir = outdir / "pack"
             else:  # kind == "set"：已是一整套二進位 → 轉成另一世代
                 packdir = outdir / "pack"
-                res = _convert.transcode_set(self.files, packdir, target="both")
+                res = _convert.transcode_set(self.files, packdir, target=target)
                 self._say(f"詞條 {res.n_entries}  SPD 碼 {res.n_codes}  "
                           f"擴充 {res.n_ext}")
                 for prof, n in res.dropped.items():
