@@ -1,11 +1,13 @@
 """cjtoolkit 命令列入口。
 
-    cjtoolkit fetch    <url> [-o table.txt]
+    cjtoolkit validate <file...> [--spd companion.spd]    # 檢查合不合法
     cjtoolkit convert  <table.txt> [--phrases ms.tsv] [--layout auto] -o outdir
     cjtoolkit pack     <outdir> [--profile both]          # 三檔文本 → 二進位套件
     cjtoolkit build    <table.txt> [...] -o outdir        # convert + pack 一步到位
     cjtoolkit install  <pack_dir> [--profile both] [--dry-run]   # 僅 Windows
     cjtoolkit codec    ...                                # 直通 vendored codec
+
+（fetch 遠端獲取暫時隱藏，模組 cjtoolkit.fetch 仍在，之後再接。）
 """
 from __future__ import annotations
 
@@ -15,15 +17,20 @@ from pathlib import Path
 
 from . import __version__, convert as _convert
 from . import codec as _codec
-from . import fetch as _fetch
 from . import install as _install
+from . import validate as _validate
 
 
-def _cmd_fetch(args: argparse.Namespace) -> int:
-    dest = Path(args.output) if args.output else Path("table.txt")
-    _fetch.fetch_to_file(args.url, dest)
-    print(f"已下載 → {dest}")
-    return 0
+def _cmd_validate(args: argparse.Namespace) -> int:
+    paths = [Path(p) for p in args.files]
+    spd = Path(args.spd) if args.spd else None
+    binaries = [p for p in paths if _validate.classify(p) in ("spd", "lex", "ext")]
+    if len(binaries) > 1 or (args.as_set and len(paths) > 1):
+        rep = _validate.validate_set(paths)
+    else:
+        rep = _validate.validate_path(paths[0], spd=spd, layout=args.layout)
+    print(rep.render())
+    return 0 if rep.ok else 1
 
 
 def _cmd_convert(args: argparse.Namespace) -> int:
@@ -118,10 +125,13 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--stem", default="cangjie", help="輸出檔名前綴")
         sp.add_argument("-o", "--output", required=True, help="輸出資料夾")
 
-    f = sub.add_parser("fetch", help="下載 txt 碼表")
-    f.add_argument("url")
-    f.add_argument("-o", "--output")
-    f.set_defaults(func=_cmd_fetch)
+    v = sub.add_parser("validate", help="檢查匯入的檔案合不合法")
+    v.add_argument("files", nargs="+", help="txt 碼表，或 spd / lex / sdc / Ext.lex")
+    v.add_argument("--spd", help="配套 .spd（驗 lex/sdc 時用來查 spell index）")
+    v.add_argument("--layout", default="auto",
+                   choices=["auto", "char-code", "code-char"])
+    v.add_argument("--as-set", action="store_true", help="把多個檔當一整套交叉檢查")
+    v.set_defaults(func=_cmd_validate)
 
     c = sub.add_parser("convert", help="txt 碼表 → 三檔文本")
     add_convert_args(c)

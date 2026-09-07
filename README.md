@@ -28,8 +28,9 @@ pip install "cjtoolkit[gui]"          # 附 PySide6 圖形介面
 ### 命令列
 
 ```bash
-# 下載碼表
-cjtoolkit fetch https://example.com/cangjie.txt -o cangjie.txt
+# 檢查檔案合不合法（文字碼表，或一整套二進位）
+cjtoolkit validate cangjie.txt
+cjtoolkit validate ChtChangjie.lex ChtChangjie.spd ChtChangjieExt.lex --as-set
 
 # txt 碼表 → 二進位套件（兩代都產）
 cjtoolkit build cangjie.txt --phrases ms-phrases.tsv -o out --profile both
@@ -44,6 +45,10 @@ cjtoolkit install out/pack --profile both --kill-ime
 
 碼表格式：一行一字，倉頡碼與漢字以 TAB 或空格分隔，UTF-8。
 欄位順序自動偵測（`--layout char-code | code-char` 可強制）。
+
+驗證會檢查 [`docs/format-notes.md`](docs/format-notes.md) 列出的硬約束
+（權重 < 2^24、SPD 相異碼 ≤ 65535、Ext.lex 排序、SPD TRIE 格式等）。
+合法才允許轉換或安裝。遠端獲取（`fetch`）暫時隱藏。
 
 ### 圖形介面
 
