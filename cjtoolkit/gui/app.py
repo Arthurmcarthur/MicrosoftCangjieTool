@@ -79,14 +79,21 @@ class MainWindow(QMainWindow):
 
         # 純文字碼表格式（欄序 / 分隔 / 編碼）
         self.layout_box = QComboBox()
-        self.layout_box.addItems(list(_convert.LAYOUTS))
-        self.layout_box.setToolTip("欄序：char-code=字在左，code-char=碼在左")
+        for value, label in (("auto", "自動"),
+                             ("char-code", "先字符後編碼"),
+                             ("code-char", "先編碼後字符")):
+            self.layout_box.addItem(label, value)
         self.sep_box = QComboBox()
-        self.sep_box.addItems(list(_convert.SEPARATORS))
-        self.sep_box.setToolTip("分隔字元：tab / space（任意空白）")
+        for value, label in (("auto", "自動"),
+                             ("tab", "Tab（定位字元）"),
+                             ("space", "空格")):
+            self.sep_box.addItem(label, value)
         self.enc_box = QComboBox()
         self.enc_box.setEditable(True)
-        self.enc_box.addItems(list(_convert.ENCODINGS))
+        for value, label in (("utf-8", "UTF-8"), ("utf-8-sig", "UTF-8（含 BOM）"),
+                             ("utf-16", "UTF-16"), ("gb18030", "GB18030"),
+                             ("big5hkscs", "Big5-HKSCS"), ("big5", "Big5")):
+            self.enc_box.addItem(label, value)
 
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("碼表格式  欄序"))
@@ -99,7 +106,12 @@ class MainWindow(QMainWindow):
         self.fmt_row = fmt_row
 
         self.profile = QComboBox()
-        self.profile.addItems(["2004", "legacy", "both"])
+        for value, label in (
+            ("2004", "Windows 10 2004 及以後，或 Windows 11"),
+            ("legacy", "Windows 10 2004 以前"),
+            ("both", "兩者皆要"),
+        ):
+            self.profile.addItem(label, value)
         self.hkscs_box = QCheckBox("安裝後開 HKSCS 擴充區")
         self.hkscs_box.setChecked(True)
         self.phrases_box = QCheckBox("併入微軟詞庫（44572 詞）")
@@ -113,7 +125,7 @@ class MainWindow(QMainWindow):
         self.install_btn.setEnabled(False)
 
         row2 = QHBoxLayout()
-        row2.addWidget(QLabel("世代"))
+        row2.addWidget(QLabel("系統版本"))
         row2.addWidget(self.profile)
         row2.addWidget(self.convert_btn)
         row2.addWidget(self.install_btn)
@@ -166,10 +178,19 @@ class MainWindow(QMainWindow):
 
     # ---- 驗證 ----
 
+    @staticmethod
+    def _combo(box, fallback: str) -> str:
+        """回傳選項的內部值（addItem 的 userData）；可編輯欄自行輸入時用文字。"""
+        data = box.currentData()
+        if data:
+            return str(data)
+        text = box.currentText().strip()
+        return text or fallback
+
     def _fmt(self) -> tuple[str, str, str]:
-        return (self.layout_box.currentText().strip() or "auto",
-                self.sep_box.currentText().strip() or "auto",
-                self.enc_box.currentText().strip() or "utf-8")
+        return (self._combo(self.layout_box, "auto"),
+                self._combo(self.sep_box, "auto"),
+                self._combo(self.enc_box, "utf-8"))
 
     def _validate(self) -> None:
         if not self.files:
@@ -234,7 +255,8 @@ class MainWindow(QMainWindow):
                 import argparse
 
                 _cmd_pack(argparse.Namespace(
-                    outdir=str(outdir), stem="cangjie", profile=self.profile.currentText()))
+                    outdir=str(outdir), stem="cangjie",
+                    profile=self.profile.currentData()))
                 self.pack_dir = outdir / "pack"
             else:
                 self._say("二進位跨世代轉換尚未實作。")
@@ -250,7 +272,7 @@ class MainWindow(QMainWindow):
     def _install(self) -> None:
         if not _install.is_windows() or self.pack_dir is None:
             return
-        profile = self.profile.currentText()
+        profile = self.profile.currentData()
         profiles = ["2004", "legacy"] if profile == "both" else [profile]
 
         box = QMessageBox(self)
