@@ -76,11 +76,12 @@ def _has_entries(path: Path) -> bool:
 def _cmd_pack(args: argparse.Namespace) -> int:
     d = Path(args.outdir)
     stem = args.stem
+    profile = "both" if getattr(args, "profile", "both") == "auto" else args.profile
     lex, spd, ext = d / f"{stem}.tsv", d / f"{stem}.spd.txt", d / f"{stem}.ext.tsv"
     argv = ["encode", str(lex), "--spd", str(spd)]
     if ext.exists() and _has_entries(ext):
         argv += ["--ext", str(ext)]
-    argv += ["--profile", args.profile, "-o", str(d / "pack")]
+    argv += ["--profile", profile, "-o", str(d / "pack")]
     return _codec.main(argv)
 
 

@@ -258,9 +258,9 @@ class MainWindow(QMainWindow):
                 from ..cli import _cmd_pack  # 重用打包流程
                 import argparse
 
+                # 打包一律產「兩套」，實際裝哪套由安裝時的系統版本決定
                 _cmd_pack(argparse.Namespace(
-                    outdir=str(outdir), stem="cangjie",
-                    profile=self.profile.currentData()))
+                    outdir=str(outdir), stem="cangjie", profile="both"))
                 self.pack_dir = outdir / "pack"
             else:
                 self._say("二進位跨世代轉換尚未實作。")
