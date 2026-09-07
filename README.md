@@ -39,8 +39,8 @@ cjtoolkit build cangjie.txt --phrases ms-phrases.tsv -o out --profile both
 cjtoolkit convert cangjie.txt -o out
 cjtoolkit pack out --profile both
 
-# 安裝（僅 Windows；非管理員會自動跳 UAC）
-cjtoolkit install out/pack --profile 2004 --enable-hkscs
+# 安裝（僅 Windows；非管理員會自動跳 UAC；--profile 預設 auto 依系統版本判定）
+cjtoolkit install out/pack --enable-hkscs
 cjtoolkit install out/pack --dry-run          # 先看會做什麼
 cjtoolkit uninstall "C:\Windows\System32\zh-hk\Backup_20260907-120000" --profile 2004
 ```

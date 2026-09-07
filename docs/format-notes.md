@@ -65,6 +65,10 @@ CLI `--layout/--sep/--encoding` / GUI 下拉）：
   從原始碼跑時要把 `source_cwd()`（含 `cjtoolkit/` 的資料夾）當子行程工作目錄，
   否則 `-m cjtoolkit` 找不到模組。`relaunch_as_admin()` 仍在但別用在會壞的情境。
 - 只結束 `ChtIME`（鎖檔的是它）；**不動 ctfmon**——殺了語言列會壞、又難乾淨還原。
+- **版本判定**：`windows_build()`（`sys.getwindowsversion().build`）。
+  build ≥ 19041＝Win10 2004＝支援新版格式；< 19041 只能裝 legacy。
+  `--profile auto`（CLI 預設）/ GUI「自動判定」依此選；不支援的 profile 被跳過，
+  `--force` 才強制。legacy 相容性一直保留，新系統也能裝。
 - 備份預設寫到 `<目標目錄>\Backup_<時間戳>\`；`restore()` / CLI `uninstall` 可還原。
 - **2026-09-07 VM 實測（管理員終端）：2004 碼表成功替換、備份正常**。
   即使沒先切走輸入法也成功，但仍要求使用者先切成「英文（美國）」鍵盤或其他
