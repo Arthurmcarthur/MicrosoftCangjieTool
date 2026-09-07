@@ -86,6 +86,16 @@ def _profiles(name: str) -> list[str]:
     return ["2004", "legacy"] if name == "both" else [name]
 
 
+def _emit(msgs: list[str], log: str | None) -> None:
+    for m in msgs:
+        print(m)
+    if log:
+        try:
+            Path(log).write_text("\n".join(msgs) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+
+
 def _cmd_install(args: argparse.Namespace) -> int:
     try:
         _install.require_windows()
@@ -93,33 +103,40 @@ def _cmd_install(args: argparse.Namespace) -> int:
         print(e, file=sys.stderr)
         return 2
 
-    # 提權：非管理員且未 --dry-run / --no-elevate 時，用 UAC 重啟自己
+    # 提權：非管理員且未 --dry-run / --no-elevate 時，用 UAC 重跑同一命令
     if not args.dry_run and not args.no_elevate and not _install.is_admin():
         print("需要系統管理員權限，正在請求提權…")
-        if _install.relaunch_as_admin():
-            print("已在新的管理員視窗繼續。")
+        if _install.relaunch_as_admin([*sys.argv, "--_child"]):
+            print("已在新的管理員視窗繼續，本視窗可關閉。")
             return 0
         print("提權失敗或被取消。", file=sys.stderr)
         return 1
 
-    print(_install.PRE_INSTALL_ADVICE)
     if not args.yes and not args.dry_run:
+        print(_install.PRE_INSTALL_ADVICE)
         if input("繼續安裝？[y/N] ").strip().lower() != "y":
             print("已取消。")
             return 1
 
-    msgs = _install.full_install(
-        Path(args.pack_dir),
-        _profiles(args.profile),
-        backup_root=Path(args.backup_dir) if args.backup_dir else None,
-        enable_hkscs=args.enable_hkscs,
-        stop_ime=not args.no_stop_ime,
-        restart_ctfmon=not args.no_restart,
-        dry_run=args.dry_run,
-    )
-    for m in msgs:
-        print(m)
-    return 0
+    try:
+        msgs = _install.full_install(
+            Path(args.pack_dir),
+            _profiles(args.profile),
+            backup_root=Path(args.backup_dir) if args.backup_dir else None,
+            enable_hkscs=args.enable_hkscs,
+            stop_ime=not args.no_stop_ime,
+            restart_ctfmon=not args.no_restart,
+            dry_run=args.dry_run,
+        )
+        rc = 0
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        msgs = ["安裝過程發生例外：", traceback.format_exc()]
+        rc = 1
+    _emit(msgs, args.log)
+    if getattr(args, "_child", False):
+        input("\n按 Enter 關閉此視窗…")
+    return rc
 
 
 def _cmd_uninstall(args: argparse.Namespace) -> int:
@@ -198,8 +215,10 @@ def build_parser() -> argparse.ArgumentParser:
     ins.add_argument("--no-stop-ime", action="store_true", help="不要結束 IME 行程")
     ins.add_argument("--no-restart", action="store_true", help="裝完不重啟 ctfmon")
     ins.add_argument("--no-elevate", action="store_true", help="不自動 UAC 提權")
+    ins.add_argument("--log", help="把結果訊息也寫到這個檔（GUI 用來回收輸出）")
     ins.add_argument("-y", "--yes", action="store_true", help="略過安裝前確認")
     ins.add_argument("--dry-run", action="store_true", help="只列出動作，不改任何檔案")
+    ins.add_argument("--_child", action="store_true", help=argparse.SUPPRESS)
     ins.set_defaults(func=_cmd_install)
 
     un = sub.add_parser("uninstall", help="從備份還原（僅 Windows）")

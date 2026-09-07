@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -242,36 +243,62 @@ class MainWindow(QMainWindow):
     def _install(self) -> None:
         if not _install.is_windows() or self.pack_dir is None:
             return
-        profiles = (["2004", "legacy"] if self.profile.currentText() == "both"
-                    else [self.profile.currentText()])
+        profile = self.profile.currentText()
+        profiles = ["2004", "legacy"] if profile == "both" else [profile]
 
         box = QMessageBox(self)
         box.setWindowTitle("安裝")
         box.setText(_install.PRE_INSTALL_ADVICE)
         box.setInformativeText(
-            f"將安裝 {' + '.join(profiles)} 到系統目錄，原檔會先備份。\n"
-            "非管理員會跳出 UAC 提權。要繼續嗎？")
+            f"將安裝 {' + '.join(profiles)} 到系統目錄，原檔會先備份到目標目錄的 "
+            "Backup_<時間戳>。\n非管理員會跳出 UAC。要繼續嗎？")
         box.setStandardButtons(QMessageBox.StandardButton.Ok
                                | QMessageBox.StandardButton.Cancel)
         if box.exec() != QMessageBox.StandardButton.Ok:
             return
 
-        if not _install.is_admin():
-            if not _install.relaunch_as_admin():
-                self._say("提權失敗或被取消；請以管理員身分重開本程式。")
+        if _install.is_admin():
+            # 已是管理員：直接跑，不必再開子行程
+            self._say("執行安裝（目前已是管理員）…")
+            QApplication.processEvents()
+            try:
+                msgs = _install.full_install(
+                    self.pack_dir, profiles,
+                    enable_hkscs=self.hkscs_box.isChecked())
+            except Exception as e:  # noqa: BLE001
+                self._say(f"安裝失敗：{e}")
                 return
-            self._say("已在管理員視窗重啟，請在該視窗繼續。")
+            for m in msgs:
+                self._say(m)
             return
 
+        # 非管理員：只提權跑 install 子命令（不重開整個 GUI），輸出回收到暫存檔
+        import tempfile
+
+        log_path = Path(tempfile.gettempdir()) / f"cjtoolkit-install-{os.getpid()}.log"
+        log_path.unlink(missing_ok=True)
+        argv = _install.worker_argv() + [
+            "install", str(self.pack_dir),
+            "--profile", profile, "--yes", "--no-elevate",
+            "--log", str(log_path),
+        ]
+        if self.hkscs_box.isChecked():
+            argv.append("--enable-hkscs")
+
+        self._say("UAC 提權中，請在提示視窗按「是」…")
+        QApplication.processEvents()
         try:
-            msgs = _install.full_install(
-                self.pack_dir, profiles,
-                enable_hkscs=self.hkscs_box.isChecked())
-        except Exception as e:  # noqa: BLE001
-            self._say(f"安裝失敗：{e}")
+            rc = _install.run_elevated(argv, show=True, wait=True)
+        except OSError as e:
+            self._say(f"提權或執行失敗：{e}")
             return
-        for m in msgs:
-            self._say(m)
+
+        if log_path.exists():
+            self._say(log_path.read_text(encoding="utf-8").rstrip())
+            log_path.unlink(missing_ok=True)
+        else:
+            self._say("（沒有收到安裝輸出；可能被取消）")
+        self._say(f"安裝行程結束，代碼 {rc}。可能需要重新選一次輸入法或登出。")
 
     # ----
 

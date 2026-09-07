@@ -21,6 +21,18 @@ def test_non_windows_guards():
     assert "非 Windows" in install.stop_processes()[0]
     with pytest.raises(install.PlatformError):
         install.require_windows()
+    with pytest.raises(install.PlatformError):
+        install.run_elevated(["x"])
+
+
+def test_worker_argv():
+    av = install.worker_argv()
+    assert av[0]  # 可執行檔
+    assert "cjtoolkit" in " ".join(av) or getattr(__import__("sys"), "frozen", False)
+
+
+def test_ime_processes_includes_chtime():
+    assert "ChtIME" in install.IME_PROCESSES
 
 
 def test_plan_install_lists_present_and_missing(tmp_path):

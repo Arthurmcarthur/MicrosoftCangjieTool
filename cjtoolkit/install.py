@@ -49,8 +49,9 @@ PROFILES = {
     },
 }
 
-#: 安裝前要結束的 IME 行程（不含 .exe）。ctfmon 另外處理（裝完會重啟它）。
-IME_PROCESSES = ("ChtIME", "MicrosoftIME")
+#: 安裝前要結束的行程（不含 .exe）。ChtIME 是微軟倉頡 IME 本體
+#: （C:\Windows\System32\InputMethod\CHT\ChtIME.exe）；ctfmon 裝完會重啟。
+IME_PROCESSES = ("ChtIME", "MicrosoftIME", "ctfmon")
 
 #: HKSCS（擴充區）開關：HKCU\Software\Microsoft\IME\15.0\CHT\Cangjie\Enable HKSCS = 1
 HKSCS_KEY = r"Software\Microsoft\IME\15.0\CHT\Cangjie"
@@ -94,10 +95,12 @@ def is_admin() -> bool:
 
 
 def relaunch_as_admin(extra_args: list[str] | None = None) -> bool:
-    """非管理員時用 UAC 重新啟動自己。
+    """非管理員時用 UAC 重新啟動「同一條命令」（給 CLI 直接用）。
 
     回傳 True 表示已送出提權請求（呼叫端應立即結束目前這個非提權行程）。
-    回傳 False 表示已是管理員、或非 Windows。
+    回傳 False 表示已是管理員、或非 Windows、或使用者取消。
+
+    GUI 不要用這個（會整個重開）；GUI 用 run_elevated() 只提權跑 install 子命令。
     """
     if not is_windows() or is_admin():
         return False
@@ -105,9 +108,78 @@ def relaunch_as_admin(extra_args: list[str] | None = None) -> bool:
 
     argv = extra_args if extra_args is not None else sys.argv
     params = subprocess.list2cmdline(argv)
-    # ShellExecuteW(hwnd, "runas", file, params, dir, SW_SHOWNORMAL=1)
     rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
     return int(rc) > 32  # <=32 代表失敗（含使用者按取消）
+
+
+def run_elevated(argv: list[str], *, show: bool = True, wait: bool = True) -> int:
+    """以管理員身分執行 argv（argv[0] 是可執行檔）。
+
+    show=True 顯示子行程主控台視窗；wait=True 等它結束並回傳 exit code
+    （否則回傳 0）。用 ShellExecuteExW，不重開呼叫者本身。
+    """
+    require_windows()
+    import ctypes
+    from ctypes import wintypes
+
+    class SHELLEXECUTEINFOW(ctypes.Structure):
+        _fields_ = [
+            ("cbSize", wintypes.DWORD),
+            ("fMask", wintypes.ULONG),
+            ("hwnd", wintypes.HWND),
+            ("lpVerb", wintypes.LPCWSTR),
+            ("lpFile", wintypes.LPCWSTR),
+            ("lpParameters", wintypes.LPCWSTR),
+            ("lpDirectory", wintypes.LPCWSTR),
+            ("nShow", ctypes.c_int),
+            ("hInstApp", wintypes.HINSTANCE),
+            ("lpIDList", ctypes.c_void_p),
+            ("lpClass", wintypes.LPCWSTR),
+            ("hkeyClass", wintypes.HKEY),
+            ("dwHotKey", wintypes.DWORD),
+            ("hIcon", wintypes.HANDLE),
+            ("hProcess", wintypes.HANDLE),
+        ]
+
+    SEE_MASK_NOCLOSEPROCESS = 0x00000040
+    SW_HIDE, SW_SHOWNORMAL = 0, 1
+    INFINITE = 0xFFFFFFFF
+
+    info = SHELLEXECUTEINFOW()
+    info.cbSize = ctypes.sizeof(info)
+    info.fMask = SEE_MASK_NOCLOSEPROCESS
+    info.lpVerb = "runas"
+    info.lpFile = argv[0]
+    info.lpParameters = subprocess.list2cmdline([str(a) for a in argv[1:]])
+    info.nShow = SW_SHOWNORMAL if show else SW_HIDE
+
+    if not ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(info)):
+        err = ctypes.get_last_error()
+        raise OSError(f"ShellExecuteExW 失敗（{err}）；使用者可能按了取消")
+    if not wait or not info.hProcess:
+        return 0
+    k32 = ctypes.windll.kernel32
+    k32.WaitForSingleObject(info.hProcess, INFINITE)
+    code = wintypes.DWORD()
+    k32.GetExitCodeProcess(info.hProcess, ctypes.byref(code))
+    k32.CloseHandle(info.hProcess)
+    return int(code.value)
+
+
+def worker_argv() -> list[str]:
+    """回傳可用來執行 cjtoolkit CLI 的前綴（凍結成 exe 時是 exe 本身）。
+
+    GUI 常經由 pythonw.exe 啟動（無主控台）；提權跑安裝時改用 python.exe，
+    這樣有視窗、錯誤看得到。
+    """
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
+    exe = sys.executable
+    if exe.lower().endswith("pythonw.exe"):
+        cand = Path(exe).with_name("python.exe")
+        if cand.exists():
+            exe = str(cand)
+    return [exe, "-m", "cjtoolkit"]
 
 
 # ---- 行程 ---------------------------------------------------------
@@ -115,9 +187,20 @@ def relaunch_as_admin(extra_args: list[str] | None = None) -> bool:
 
 def _taskkill(name: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["taskkill", "/F", "/IM", f"{name}.exe"],
+        ["taskkill", "/F", "/T", "/IM", f"{name}.exe"],
         capture_output=True, text=True, timeout=10,
     )
+
+
+def is_running(name: str) -> bool:
+    if not is_windows():
+        return False
+    try:
+        r = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {name}.exe", "/NH"],
+                           capture_output=True, text=True, timeout=10)
+    except Exception:  # noqa: BLE001
+        return False
+    return f"{name}.exe".lower() in r.stdout.lower()
 
 
 def stop_processes(names: tuple[str, ...] = IME_PROCESSES) -> list[str]:
@@ -125,12 +208,20 @@ def stop_processes(names: tuple[str, ...] = IME_PROCESSES) -> list[str]:
         return ["非 Windows，略過結束 IME 行程"]
     msgs: list[str] = []
     for n in names:
+        if not is_running(n):
+            msgs.append(f"{n} 未在執行")
+            continue
         try:
             r = _taskkill(n)
         except Exception as e:  # noqa: BLE001
             msgs.append(f"結束 {n} 失敗：{e}")
             continue
-        msgs.append(f"已結束 {n}" if r.returncode == 0 else f"{n} 未在執行")
+        if r.returncode == 0 and not is_running(n):
+            msgs.append(f"已結束 {n}")
+        else:
+            detail = (r.stderr or r.stdout).strip().splitlines()
+            msgs.append(f"⚠ {n} 未能結束：{detail[-1] if detail else r.returncode}"
+                        "（可能被系統立即重啟；請確認已切到英文輸入法）")
     return msgs
 
 
