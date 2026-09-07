@@ -100,10 +100,23 @@ def windows_name() -> str:
     return f"Windows 10 2004 以前或更舊（build {b}）"
 
 
-def recommended_profile() -> str:
-    """依目前系統版本建議的 profile。"""
+def recommended_profiles() -> list[str]:
+    """依目前系統版本建議安裝哪些 profile。
+
+    - Windows 10 2004 以前：只有 legacy 能用。
+    - Windows 10 2004 及以後 / Windows 11：同時更新 2004 與 legacy 兩處——
+      因為使用者可能在 IME 設定裡開了「使用之前版本的 Microsoft 倉頡」，
+      那樣輸入法會改讀 legacy 路徑，只更新 2004 就沒效果。
+    """
     b = windows_build()
-    return "legacy" if (b is not None and b < WIN10_2004_BUILD) else "2004"
+    if b is not None and b < WIN10_2004_BUILD:
+        return ["legacy"]
+    return ["2004", "legacy"]
+
+
+def recommended_profile() -> str:
+    """單一建議值（給標籤等用）。"""
+    return recommended_profiles()[0]
 
 
 def profile_supported(profile: str) -> tuple[bool, str]:
@@ -120,9 +133,9 @@ def profile_supported(profile: str) -> tuple[bool, str]:
 
 
 def resolve_profiles(name: str) -> list[str]:
-    """auto → 依系統版本；both → 兩者；其餘 → 自身。"""
+    """auto → 依系統版本建議（2004+ 會同時更新新舊兩處）；both → 兩者；其餘 → 自身。"""
     if name == "auto":
-        return [recommended_profile()]
+        return recommended_profiles()
     if name == "both":
         return ["2004", "legacy"]
     return [name]

@@ -67,8 +67,12 @@ CLI `--layout/--sep/--encoding` / GUI 下拉）：
 - 只結束 `ChtIME`（鎖檔的是它）；**不動 ctfmon**——殺了語言列會壞、又難乾淨還原。
 - **版本判定**：`windows_build()`（`sys.getwindowsversion().build`）。
   build ≥ 19041＝Win10 2004＝支援新版格式；< 19041 只能裝 legacy。
-  `--profile auto`（CLI 預設）/ GUI「自動判定」依此選；不支援的 profile 被跳過，
-  `--force` 才強制。legacy 相容性一直保留，新系統也能裝。
+  `--profile auto`（CLI 預設）/ GUI「自動判定」：
+  · < 19041 → 只裝 legacy
+  · ≥ 19041 → **同時裝 2004 + legacy**，因為使用者可能在 IME 設定開了
+    「使用之前版本的 Microsoft 倉頡」，那樣會改讀 legacy 路徑，只更新 2004 沒效果。
+    （沒找到可靠的登錄機碼判斷該開關，所以一律兩處都更新，最穩。）
+  不支援的 profile 會被跳過，`--force` 才強制。
 - 備份預設寫到 `<目標目錄>\Backup_<時間戳>\`；`restore()` / CLI `uninstall` 可還原。
 - **2026-09-07 VM 實測（管理員終端）：2004 碼表成功替換、備份正常**。
   即使沒先切走輸入法也成功，但仍要求使用者先切成「英文（美國）」鍵盤或其他

@@ -26,12 +26,18 @@ def test_non_windows_guards():
 
 
 def test_version_helpers():
-    # 非 Windows：build None、都視為支援、auto→2004
+    # 非 Windows：build None、都視為支援、auto→新舊兩處
     assert install.resolve_profiles("both") == ["2004", "legacy"]
-    assert install.resolve_profiles("auto") == [install.recommended_profile()]
+    assert install.resolve_profiles("auto") == ["2004", "legacy"]
     assert install.profile_supported("legacy") == (True, "")
     ok, _ = install.profile_supported("2004")
     assert ok  # 非 Windows 不擋
+
+
+def test_auto_new_windows_updates_both(monkeypatch):
+    monkeypatch.setattr(install, "windows_build", lambda: 22631)  # Win11
+    assert install.recommended_profiles() == ["2004", "legacy"]
+    assert install.resolve_profiles("auto") == ["2004", "legacy"]
 
 
 def test_profile_supported_blocks_old_windows(monkeypatch):
@@ -39,7 +45,7 @@ def test_profile_supported_blocks_old_windows(monkeypatch):
     ok, why = install.profile_supported("2004")
     assert not ok and "2004" in why
     assert install.profile_supported("legacy") == (True, "")
-    assert install.recommended_profile() == "legacy"
+    assert install.recommended_profiles() == ["legacy"]
     assert install.resolve_profiles("auto") == ["legacy"]
 
 

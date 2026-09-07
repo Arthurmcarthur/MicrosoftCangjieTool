@@ -112,7 +112,9 @@ def _cmd_install(args: argparse.Namespace) -> int:
     resolved = _install.resolve_profiles(args.profile)
     print(f"目前系統：{_install.windows_name()}")
     if args.profile == "auto":
-        print(f"依系統版本選擇：{' + '.join(resolved)}")
+        print(f"依系統版本安裝：{' + '.join(resolved)}")
+        if len(resolved) > 1:
+            print("  （同時更新新舊兩處，以防你開了「使用之前版本的 Microsoft 倉頡」）")
     if not args.force and not any(_install.profile_supported(p)[0] for p in resolved):
         for p in resolved:
             ok, why = _install.profile_supported(p)

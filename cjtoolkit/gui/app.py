@@ -280,6 +280,8 @@ class MainWindow(QMainWindow):
         profiles = _install.resolve_profiles(profile)
         if profile == "auto":
             self._say(f"系統版本 {_install.windows_name()} → 安裝 {' + '.join(profiles)}")
+            if len(profiles) > 1:
+                self._say("（同時更新新舊兩處，以防你開了「使用之前版本的 Microsoft 倉頡」）")
 
         # 版本防禦：系統不支援的 profile 直接擋下
         blocked = [(p, why) for p in profiles
