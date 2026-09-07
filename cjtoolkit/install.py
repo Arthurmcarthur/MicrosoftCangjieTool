@@ -59,7 +59,8 @@ HKSCS_KEY = r"Software\Microsoft\IME\15.0\CHT\Cangjie"
 HKSCS_VALUE = "Enable HKSCS"
 
 PRE_INSTALL_ADVICE = (
-    "請先把輸入法切換到英文（或非微軟倉頡的輸入法），再繼續。\n"
+    "請先把輸入法切換成「英文（美國）」鍵盤，或其他非微軟倉頡的輸入法。\n"
+    "注意：不是把微軟倉頡切到英文模式——要整個換掉輸入法，否則碼表檔仍被佔用。\n"
     "本工具會結束 ChtIME 行程後覆寫碼表檔；裝完可能要重新選一次輸入法或登出。"
 )
 
