@@ -21,6 +21,7 @@ Nuitka 預設會做 ad-hoc 簽章，Apple Silicon 上才跑得起來。
 """
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -81,9 +82,15 @@ def main() -> int:
     if rc != 0:
         return rc
 
+    # Nuitka 把 .app 命名成進入點（cjtoolkit.app），統一改名成 MSCJTool.app
     if not APP.is_dir():
-        print(f"找不到 {APP}", file=sys.stderr)
-        return 1
+        found = sorted((ROOT / "build").glob("*.app"))
+        if not found:
+            print("Nuitka 沒有產出 .app", file=sys.stderr)
+            return 1
+        if APP.exists():
+            shutil.rmtree(APP)
+        found[0].rename(APP)
     ZIP.unlink(missing_ok=True)
     # ditto 比 zip 更能保住 .app 的 metadata / 簽章
     rc = subprocess.call(["ditto", "-c", "-k", "--keepParent", str(APP), str(ZIP)])
