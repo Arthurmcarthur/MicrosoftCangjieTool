@@ -24,6 +24,7 @@ if __package__ in (None, ""):
 
 try:
     from PySide6.QtCore import Qt
+    from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import (
         QApplication,
         QCheckBox,
@@ -49,12 +50,15 @@ from .. import install as _install
 from .. import validate as _validate
 
 _BIN = {"spd", "lex", "ext"}
+_ICON = Path(__file__).with_name("cjico.ico")
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"微軟倉頡碼表工具 {__version__}")
+        if _ICON.exists():
+            self.setWindowIcon(QIcon(str(_ICON)))
         self.resize(640, 560)
 
         self.files: list[Path] = []
@@ -377,6 +381,8 @@ class MainWindow(QMainWindow):
 def main() -> int:
     app = QApplication(sys.argv)
     app.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, False)
+    if _ICON.exists():
+        app.setWindowIcon(QIcon(str(_ICON)))
     w = MainWindow()
     w.show()
     return app.exec()

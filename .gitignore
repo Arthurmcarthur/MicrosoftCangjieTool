@@ -22,6 +22,8 @@ venv/
 .nuitka/
 *.build/
 *.dist/
+*.onefile-build/
+*.exe
 
 # 產出
 out/

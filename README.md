@@ -30,7 +30,13 @@
 
 ## 安裝與執行
 
-v2 還沒有打包成單一 `.exe`（規劃中）。目前從原始碼執行：
+### Windows：下載打包版
+
+到 [Releases](../../releases) 下載單一檔 `MSCJTool.exe`：雙擊開圖形介面，或
+`MSCJTool.exe --help` / `MSCJTool.exe build …` 走命令列。免安裝，第一次啟動會
+解壓到暫存資料夾、稍慢一下。（打 tag 後由 GitHub Actions 自動 build。）
+
+### 從原始碼執行（任何平台）
 
 ```bash
 git clone https://github.com/Arthurmcarthur/MicrosoftCangjieTool.git
@@ -155,6 +161,13 @@ Windows 10 2004及之後的版本、Windows 11預設使用「新版」碼表。�
 ```bash
 pip install -e ".[dev]"
 pytest
+```
+
+Windows 打包（要在 Windows 上，Nuitka 不跨平台編）：
+
+```bash
+pip install -e ".[build]"
+python scripts/build_windows.py       # → build/MSCJTool.exe
 ```
 
 `cjtoolkit/codec.py` 負責純文字碼表與二進位辭典檔之間的編解碼，已逐位元對齊三個官方 `.spd` 樣本；有些格式約束一旦違反會讓輸入法卡死，都列在 [`docs/format-notes.md`](docs/format-notes.md)。遠端獲取（`fetch`）模組還在，暫時未接入 CLI / GUI。

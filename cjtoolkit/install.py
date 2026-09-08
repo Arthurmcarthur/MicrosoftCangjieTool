@@ -74,6 +74,11 @@ def is_windows() -> bool:
     return sys.platform == "win32"
 
 
+def is_frozen() -> bool:
+    """打包成單一 exe（Nuitka onefile / PyInstaller）後為 True。"""
+    return bool(getattr(sys, "frozen", False)) or "__compiled__" in globals()
+
+
 def windows_build() -> int | None:
     """目前 Windows 的 build 編號；非 Windows 回 None。"""
     if not is_windows():
@@ -176,7 +181,7 @@ def relaunch_as_admin(extra_args: list[str] | None = None) -> bool:
 def source_cwd() -> str | None:
     """從原始碼跑（未 pip install、未凍結）時，回傳含 cjtoolkit/ 套件的資料夾，
     供提權子行程當工作目錄用（否則 `python -m cjtoolkit` 會找不到模組）。"""
-    if getattr(sys, "frozen", False):
+    if is_frozen():
         return None
     root = Path(__file__).resolve().parent.parent
     return str(root) if (root / "cjtoolkit" / "__init__.py").exists() else None
@@ -246,7 +251,7 @@ def worker_argv() -> list[str]:
     GUI 常經由 pythonw.exe 啟動（無主控台）；提權跑安裝時改用 python.exe，
     這樣有視窗、錯誤看得到。
     """
-    if getattr(sys, "frozen", False):
+    if is_frozen():
         return [sys.executable]
     exe = sys.executable
     if exe.lower().endswith("pythonw.exe"):
