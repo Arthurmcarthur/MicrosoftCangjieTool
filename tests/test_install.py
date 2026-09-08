@@ -84,6 +84,13 @@ def test_ime_processes_includes_chtime():
     assert "ChtIME" in install.IME_PROCESSES
 
 
+def test_run_forces_devnull_stdin():
+    # _run 一定要能在沒有可用 stdin 的情況下跑（打包 exe + 提權子行程）
+    cmd = ["cmd", "/c", "echo hi"] if install.is_windows() else ["printf", "hi"]
+    r = install._run(cmd, timeout=10)
+    assert r.returncode == 0 and "hi" in r.stdout
+
+
 def test_plan_install_lists_present_and_missing(tmp_path):
     (tmp_path / "ChtCangjie.sdc").write_bytes(b"x")
     (tmp_path / "ChtCangjie.spd").write_bytes(b"x")

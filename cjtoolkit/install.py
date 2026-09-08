@@ -282,20 +282,32 @@ def worker_argv() -> list[str]:
 
 # ---- 行程 ---------------------------------------------------------
 
+#: CREATE_NO_WINDOW —— 跑子命令時不要閃出主控台視窗
+_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
+
+def _run(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess:
+    """跑一個外部命令並收集輸出。
+
+    一定要自己給 stdin=DEVNULL：打包成無主控台的 GUI exe、又在提權子行程裏
+    執行時，繼承來的標準 handle 是無效的，subprocess 會丟 [WinError 6] 句柄無效。
+    """
+    return subprocess.run(
+        cmd, stdin=subprocess.DEVNULL,
+        capture_output=True, text=True, timeout=timeout,
+        creationflags=_NO_WINDOW,
+    )
+
 
 def _taskkill(name: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["taskkill", "/F", "/T", "/IM", f"{name}.exe"],
-        capture_output=True, text=True, timeout=10,
-    )
+    return _run(["taskkill", "/F", "/T", "/IM", f"{name}.exe"], timeout=10)
 
 
 def is_running(name: str) -> bool:
     if not is_windows():
         return False
     try:
-        r = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {name}.exe", "/NH"],
-                           capture_output=True, text=True, timeout=10)
+        r = _run(["tasklist", "/FI", f"IMAGENAME eq {name}.exe", "/NH"], timeout=10)
     except Exception:  # noqa: BLE001
         return False
     return f"{name}.exe".lower() in r.stdout.lower()
@@ -341,7 +353,11 @@ def start_ctfmon() -> list[str]:
     sysroot = os.environ.get("SystemRoot", r"C:\Windows")
     ctfmon = str(Path(sysroot) / "System32" / "ctfmon.exe")
     try:
-        subprocess.Popen([ctfmon], close_fds=True)
+        subprocess.Popen(
+            [ctfmon], close_fds=True, creationflags=_NO_WINDOW,
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         return ["已啟動 ctfmon"]
     except OSError:
         return ["ctfmon 未在執行；請登出再登入，或按 Win+R 執行 ctfmon"]
@@ -362,7 +378,7 @@ def take_ownership(path: Path, *, recurse: bool = False) -> list[str]:
     icacls = ["icacls", str(path), "/grant", f"{who}:F"] + (["/t"] if recurse else [])
     for cmd in (takeown, icacls):
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            r = _run(cmd, timeout=30)
             if r.returncode != 0:
                 msgs.append(f"{cmd[0]} 失敗：{(r.stderr or r.stdout).strip().splitlines()[-1:]}")
         except Exception as e:  # noqa: BLE001
