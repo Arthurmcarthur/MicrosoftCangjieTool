@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -152,9 +153,18 @@ def _cmd_install(args: argparse.Namespace) -> int:
     # 重跑 install（經 `-m cjtoolkit`，不是重跑 __main__.py 的路徑——那會壞掉）
     if not args.dry_run and not args.no_elevate and not _install.is_admin():
         print("正在請求系統管理員權限…")
+        # 提權後的子行程可能沒有主控台（打包成 GUI exe、或 UAC 切斷了主控台繼承），
+        # 一律把輸出寫到暫存 log，等它結束再讀回來印。
+        import tempfile
+        log = args.log or str(Path(tempfile.gettempdir())
+                              / f"cjtoolkit-install-{os.getpid()}.log")
+        try:
+            Path(log).unlink()
+        except OSError:
+            pass
         child = _install.worker_argv() + [
             "install", str(args.pack_dir), "--profile", args.profile,
-            "--no-elevate", "--yes", "--_child",
+            "--no-elevate", "--yes", "--_child", "--log", log,
         ]
         if args.no_stop_ime:
             child.append("--no-stop-ime")
@@ -170,6 +180,10 @@ def _cmd_install(args: argparse.Namespace) -> int:
         except OSError as e:
             print(f"提權失敗或被取消：{e}", file=sys.stderr)
             return 1
+        try:
+            print(Path(log).read_text(encoding="utf-8").rstrip())
+        except OSError:
+            print("（提權子行程沒有留下輸出）", file=sys.stderr)
         return rc
 
     try:
@@ -188,7 +202,7 @@ def _cmd_install(args: argparse.Namespace) -> int:
         msgs = ["安裝過程發生例外：", traceback.format_exc()]
         rc = 1
     _emit(msgs, args.log)
-    if getattr(args, "_child", False):
+    if getattr(args, "_child", False) and sys.stdin and sys.stdin.isatty():
         input("\n按 Enter 關閉此視窗…")
     return rc
 

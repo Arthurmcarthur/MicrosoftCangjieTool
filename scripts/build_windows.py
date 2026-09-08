@@ -12,7 +12,8 @@
   MSCJTool.exe --help       → 命令列用法
   MSCJTool.exe install …    → 安裝流程自我提權時就是這樣重跑自己
 
-console-mode=hybrid：從主控台執行時吃得到 stdout，從檔案總管雙擊開 GUI 不閃黑框。
+console-mode=attach：從主控台執行時附著上去、吃得到 stdout；從檔案總管雙擊
+開 GUI 時不開黑框。提權的安裝子行程沒有主控台，改由 --log 回收輸出。
 不加 UAC manifest —— 安裝流程自己會提權開子行程，主程式維持一般權限。
 """
 from __future__ import annotations
@@ -50,7 +51,7 @@ def main() -> int:
         "--enable-plugin=pyside6",
         "--include-package-data=cjtoolkit",  # data/*.tsv、gui/*.ico
         "--nofollow-import-to=pytest",
-        "--windows-console-mode=hybrid",
+        "--windows-console-mode=attach",
         f"--windows-icon-from-ico={ICON}",
         "--company-name=Arthurmcarthur",
         "--product-name=微軟倉頡碼表工具",
