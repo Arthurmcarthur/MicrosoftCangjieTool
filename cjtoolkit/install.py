@@ -289,12 +289,19 @@ _NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 def _run(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess:
     """跑一個外部命令並收集輸出。
 
-    一定要自己給 stdin=DEVNULL：打包成無主控台的 GUI exe、又在提權子行程裏
-    執行時，繼承來的標準 handle 是無效的，subprocess 會丟 [WinError 6] 句柄無效。
+    · stdin=DEVNULL：打包成無主控台的 GUI exe、又在提權子行程裏執行時，
+      繼承來的標準 handle 是無效的，不給就會丟 [WinError 6] 句柄無效。
+    · 明確 stdout/stderr=PIPE，不用 capture_output —— Nuitka 打包後
+      capture_output 有時會被忽略，導致 r.stdout 是 None。
+    · 明確 encoding，避免凍結環境下 locale 判斷失準。
     """
     return subprocess.run(
-        cmd, stdin=subprocess.DEVNULL,
-        capture_output=True, text=True, timeout=timeout,
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        encoding="utf-8", errors="replace",
+        timeout=timeout,
         creationflags=_NO_WINDOW,
     )
 
@@ -310,7 +317,7 @@ def is_running(name: str) -> bool:
         r = _run(["tasklist", "/FI", f"IMAGENAME eq {name}.exe", "/NH"], timeout=10)
     except Exception:  # noqa: BLE001
         return False
-    return f"{name}.exe".lower() in r.stdout.lower()
+    return f"{name}.exe".lower() in (r.stdout or "").lower()
 
 
 def stop_processes(names: tuple[str, ...] = IME_PROCESSES) -> list[str]:
@@ -318,9 +325,7 @@ def stop_processes(names: tuple[str, ...] = IME_PROCESSES) -> list[str]:
         return ["非 Windows，略過結束 IME 行程"]
     msgs: list[str] = []
     for n in names:
-        if not is_running(n):
-            msgs.append(f"{n} 未在執行")
-            continue
+        # 直接 taskkill，靠回傳碼判斷；不先 tasklist（凍結環境下 tasklist 解析不可靠）
         try:
             r = _taskkill(n)
         except Exception as e:  # noqa: BLE001
@@ -329,7 +334,8 @@ def stop_processes(names: tuple[str, ...] = IME_PROCESSES) -> list[str]:
         if r.returncode == 0:
             # taskkill 成功。ChtIME / ctfmon 常被系統立即重啟，這是正常的——
             # 重點是「刪除原檔的那一刻」它沒鎖住檔案，copy 成功即可。
-            msgs.append(f"已結束 {n}" + ("（系統已立即重啟，屬正常）" if is_running(n) else ""))
+            msgs.append(f"已結束 {n}"
+                        + ("（系統已立即重啟，屬正常）" if is_running(n) else ""))
         elif r.returncode == 128:
             msgs.append(f"{n} 未在執行")
         else:
@@ -380,7 +386,8 @@ def take_ownership(path: Path, *, recurse: bool = False) -> list[str]:
         try:
             r = _run(cmd, timeout=30)
             if r.returncode != 0:
-                msgs.append(f"{cmd[0]} 失敗：{(r.stderr or r.stdout).strip().splitlines()[-1:]}")
+                tail = (r.stderr or r.stdout or "").strip().splitlines()[-1:]
+                msgs.append(f"{cmd[0]} 失敗：{tail}")
         except Exception as e:  # noqa: BLE001
             msgs.append(f"{cmd[0]} 例外：{e}")
     return msgs
