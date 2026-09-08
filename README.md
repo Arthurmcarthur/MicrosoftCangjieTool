@@ -143,9 +143,9 @@ cjtoolkit transcode ChtChangjie.spd ChtChangjie.lex ChtChangjieExt.lex --to 2004
    - 舊版 `C:\Windows\InputMethod\CHT\`：原檔屬 TrustedInstaller，覆寫被拒時自動 `takeown` / `icacls` 取得所有權再試。
 6. 重啟 `ctfmon`；可能要重新選一次輸入法或登出。
 
-**這會覆寫系統檔。** 工具每次都會先備份、`uninstall` 可還原，但日後的系統更新仍可能打破相容性，建議先在虛擬機或有還原點的環境試。安裝前務必把輸入法整個切成「英文（美國）」鍵盤或其他**非微軟**輸入法 —— 只把倉頡切成英文模式不會解除檔案佔用，程式就無法替換。
+**這會覆寫系統檔。** 工具每次都會先備份原文件，通過`uninstall` 可以還原，不过日後的系統更新仍可能打破相容性，故使用風險微存。安裝前務必把輸入法整個切成「英文（美國）」鍵盤或其他**非微軟**輸入法 —— 只把倉頡切成英文模式不會解除檔案佔用，程式就無法替換。
 
-**Windows 版本**：Windows 10 2004（build 19041）以後與 Windows 11 用新版辭典格式，更早的只能用舊版。`--profile auto`（預設）會自己判斷 —— 2004 以後的系統會**同時**更新新舊兩處。
+**Windows 版本**：Windows 10 2004（build 19041）以後與 Windows 11 同時兼容新舊辭典文件，不过系統默認調用新版辭典文件，而這之前的版本則只能使用舊辭典文件 。`--profile auto`（預設）會自動判斷系統版本，Windows 10 2004 以後的系統會**同時**更新新舊兩處。
 
 ## 微軟倉頡碼表檔的位置
 
@@ -181,8 +181,8 @@ python scripts/build_macos.py         # macOS   → build/MSCJTool.app (+ .zip)
 
 ## 致謝
 
-- [xionghuaidong](https://gitee.com/xionghuaidong) —— 寫了[微軟五筆碼表編輯器](https://gitee.com/gitwub/WubiTools)，開更換微軟碼表之先河，本項目的 v1 舊版受他很大啓發。
-- [mrhso](https://github.com/mrhso) —— 最早以 JavaScript 完成對 `ChtChangjieExt.lex` 的讀取，在他的基礎上，我才完全弄清該檔的碼表結構。
+- [xionghuaidong](https://gitee.com/xionghuaidong)：寫了[微軟五筆碼表編輯器](https://gitee.com/gitwub/WubiTools)，開更換微軟碼表之先河，本項目的 v1 舊版受他很大啓發。
+- [mrhso](https://github.com/mrhso)：最早以 JavaScript 完成對 `ChtChangjieExt.lex` 的讀取，在他的基礎上，我才完全弄清該檔的碼表結構。
 
 ## 授權
 
