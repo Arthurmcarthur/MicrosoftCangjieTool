@@ -14,8 +14,13 @@
 from __future__ import annotations
 
 import collections
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
+
+#: 欄位分隔：只認半形空格與 Tab。不能用 str.split()——它會把 U+3000 全形空格
+#: 等 Unicode 空白也當分隔，而全形空格本身可能就是碼表要對應的「字」（見 cj3 zxaa）。
+_WS = re.compile(r"[ \t]+")
 
 # ---- 硬約束常數（見 CLAUDE.md）---------------------------------------------
 
@@ -76,9 +81,9 @@ def _split(ln: str, separator: str) -> list[str]:
     if separator == "tab":
         return ln.split("\t")
     if separator == "space":
-        return ln.split()          # 任意空白（單／多個空格、tab）
-    # auto：有 tab 用 tab，否則任意空白
-    return ln.split("\t") if "\t" in ln else ln.split()
+        return _WS.split(ln.strip(" \t"))     # 半形空格 / Tab（不吃全形空白）
+    # auto：有 tab 用 tab，否則半形空格 / Tab
+    return ln.split("\t") if "\t" in ln else _WS.split(ln.strip(" \t"))
 
 
 def _read_lines(path: Path, encoding: str) -> list[str]:

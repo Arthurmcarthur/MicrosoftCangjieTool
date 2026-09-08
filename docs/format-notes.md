@@ -46,8 +46,9 @@ CLI `--layout/--sep/--encoding` / GUI 下拉）：
 
 - **欄序** `auto | char-code | code-char`：`char-code`＝漢字在左，`code-char`＝碼在左。
   `auto` 看前 200 行投票（哪一欄整欄是 ASCII 字母就是碼）。
-- **分隔** `auto | tab | space`：`space` = `str.split()`（任意空白）。
-  `auto` = 有 tab 用 tab，否則任意空白。
+- **分隔** `auto | tab | space`：`space` = 一個以上的半形空格或 Tab（`[ \t]+`）。
+  `auto` = 有 tab 用 tab，否則同 `space`。**不吃全形空白**——U+3000 等
+  Unicode 空白可能正是碼表要對應的「字」（cj3 的 `zxaa` → 全形空格）。
 - **編碼**：任何 Python codec 名；`utf-8` 會自動改用 `utf-8-sig` 容忍 BOM。
 
 ## 轉換規則（`convert.py` 預設，可調參數）

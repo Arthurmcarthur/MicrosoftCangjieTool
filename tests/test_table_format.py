@@ -25,6 +25,13 @@ def test_sep_space(tmp_path):
     assert ct.first_code["目"] == "bu"
 
 
+def test_fullwidth_space_as_target_char(tmp_path):
+    # 碼對應到全形空格 U+3000 —— 不可被當成分隔符（cj3 的 zxaa 那行）
+    p = w(tmp_path, "zxaa   　\n")
+    assert convert.parse_code_table(p, "code-char", separator="space").first_code["　"] == "zxaa"
+    assert convert.parse_code_table(p, "code-char", separator="auto").first_code["　"] == "zxaa"
+
+
 def test_sep_tab_rejects_space_file(tmp_path):
     p = w(tmp_path, "日 a\n")
     try:
