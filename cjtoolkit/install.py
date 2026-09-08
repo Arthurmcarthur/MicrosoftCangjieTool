@@ -172,9 +172,14 @@ def relaunch_as_admin(extra_args: list[str] | None = None) -> bool:
         return False
     import ctypes
 
-    argv = extra_args if extra_args is not None else sys.argv
-    params = subprocess.list2cmdline(argv)
-    rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
+    exe = frozen_exe()
+    if exe:
+        argv = extra_args if extra_args is not None else sys.argv[1:]
+    else:
+        exe = sys.executable
+        argv = extra_args if extra_args is not None else sys.argv
+    params = subprocess.list2cmdline([str(a) for a in argv])
+    rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, None, 1)
     return int(rc) > 32  # <=32 代表失敗（含使用者按取消）
 
 
@@ -245,14 +250,28 @@ def run_elevated(argv: list[str], *, cwd: str | None = None,
     return int(code.value)
 
 
+def frozen_exe() -> str | None:
+    """打包成單一 exe 時，回傳那個 exe 的絕對路徑。
+
+    Nuitka onefile 的 `sys.executable` 指向解壓到暫存目錄的內部 python.exe，
+    拿去 ShellExecute 會「找不到檔案」（提權另開行程時暫存目錄已不對）。
+    正確來源是 Nuitka 設的環境變數 NUITKA_ONEFILE_BINARY，退而求其次用 argv[0]。
+    """
+    if not is_frozen():
+        return None
+    exe = os.environ.get("NUITKA_ONEFILE_BINARY") or sys.argv[0]
+    return os.path.abspath(exe)
+
+
 def worker_argv() -> list[str]:
     """回傳可用來執行 cjtoolkit CLI 的前綴（凍結成 exe 時是 exe 本身）。
 
     GUI 常經由 pythonw.exe 啟動（無主控台）；提權跑安裝時改用 python.exe，
     這樣有視窗、錯誤看得到。
     """
-    if is_frozen():
-        return [sys.executable]
+    exe = frozen_exe()
+    if exe:
+        return [exe]
     exe = sys.executable
     if exe.lower().endswith("pythonw.exe"):
         cand = Path(exe).with_name("python.exe")

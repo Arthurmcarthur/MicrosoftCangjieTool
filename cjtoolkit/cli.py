@@ -213,13 +213,34 @@ def _cmd_uninstall(args: argparse.Namespace) -> int:
     except _install.PlatformError as e:
         print(e, file=sys.stderr)
         return 2
+
     if not args.dry_run and not args.no_elevate and not _install.is_admin():
-        if _install.relaunch_as_admin():
-            return 0
-        print("提權失敗或被取消。", file=sys.stderr)
-        return 1
-    for m in _install.restore(Path(args.backup_dir), args.profile):
-        print(m)
+        print("正在請求系統管理員權限…")
+        import tempfile
+        log = args.log or str(Path(tempfile.gettempdir())
+                              / f"cjtoolkit-uninstall-{os.getpid()}.log")
+        try:
+            Path(log).unlink()
+        except OSError:
+            pass
+        child = _install.worker_argv() + [
+            "uninstall", str(args.backup_dir), "--profile", args.profile,
+            "--no-elevate", "--log", log,
+        ]
+        try:
+            rc = _install.run_elevated(child, cwd=_install.source_cwd(),
+                                       show=True, wait=True)
+        except OSError as e:
+            print(f"提權失敗或被取消：{e}", file=sys.stderr)
+            return 1
+        try:
+            print(Path(log).read_text(encoding="utf-8").rstrip())
+        except OSError:
+            print("（提權子行程沒有留下輸出）", file=sys.stderr)
+        return rc
+
+    msgs = _install.restore(Path(args.backup_dir), args.profile)
+    _emit(msgs, args.log)
     return 0
 
 
@@ -304,6 +325,7 @@ def build_parser() -> argparse.ArgumentParser:
     un.add_argument("backup_dir", help="某次備份的資料夾")
     un.add_argument("--profile", default="2004", choices=["2004", "legacy"])
     un.add_argument("--no-elevate", action="store_true")
+    un.add_argument("--log", help="把結果訊息也寫到這個檔")
     un.add_argument("--dry-run", action="store_true")
     un.set_defaults(func=_cmd_uninstall)
 

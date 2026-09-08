@@ -1,4 +1,5 @@
 """install.py 在非 Windows 上能安全 import 且純函式行為正確。"""
+import os
 from pathlib import Path
 
 import pytest
@@ -52,6 +53,31 @@ def test_worker_argv():
     av = install.worker_argv()
     assert av[0]  # 可執行檔
     assert "cjtoolkit" in " ".join(av) or getattr(__import__("sys"), "frozen", False)
+
+
+def test_frozen_exe_none_when_not_frozen():
+    assert install.frozen_exe() is None
+
+
+def test_worker_argv_frozen_uses_onefile_binary(tmp_path, monkeypatch):
+    fake = tmp_path / "MSCJTool.exe"
+    fake.write_bytes(b"MZ")
+    monkeypatch.setattr(install, "is_frozen", lambda: True)
+    monkeypatch.setenv("NUITKA_ONEFILE_BINARY", str(fake))
+    assert install.worker_argv() == [str(fake)]           # 不是 sys.executable
+    assert install.frozen_exe() == str(fake)
+
+
+def test_worker_argv_frozen_falls_back_to_argv0(monkeypatch):
+    monkeypatch.setattr(install, "is_frozen", lambda: True)
+    monkeypatch.delenv("NUITKA_ONEFILE_BINARY", raising=False)
+    monkeypatch.setattr(install.sys, "argv", ["/some/where/MSCJTool.exe", "install"])
+    assert install.worker_argv() == [os.path.abspath("/some/where/MSCJTool.exe")]
+
+
+def test_source_cwd_none_when_frozen(monkeypatch):
+    monkeypatch.setattr(install, "is_frozen", lambda: True)
+    assert install.source_cwd() is None
 
 
 def test_ime_processes_includes_chtime():
