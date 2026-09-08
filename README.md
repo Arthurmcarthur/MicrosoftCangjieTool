@@ -30,11 +30,17 @@
 
 ## 安裝與執行
 
-### Windows：下載打包版
+### 下載打包版
 
-到 [Releases](../../releases) 下載單一檔 `MSCJTool.exe`：雙擊開圖形介面，或
-`MSCJTool.exe --help` / `MSCJTool.exe build …` 走命令列。免安裝，第一次啟動會
-解壓到暫存資料夾、稍慢一下。（打 tag 後由 GitHub Actions 自動 build。）
+到 [Releases](../../releases) 下載（打 tag 後由 GitHub Actions 自動 build）：
+
+- **Windows**：`MSCJTool.exe`，單一檔免安裝。雙擊開圖形介面，或
+  `MSCJTool.exe --help` / `MSCJTool.exe build …` 走命令列。第一次啟動會解壓到
+  暫存資料夾、稍慢一下。
+- **macOS**：`MSCJTool-macos.zip`，解壓得 `MSCJTool.app`（Apple Silicon）。
+  沒做簽章 / 公證，第一次開要在「系統設定 → 隱私權與安全性」按「仍要打開」，
+  或 `xattr -dr com.apple.quarantine MSCJTool.app`。macOS 沒有微軟輸入法，
+  只能轉換 / 打包 / 驗證，辭典檔拿到 Windows 再安裝。
 
 ### 從原始碼執行（任何平台）
 
@@ -163,11 +169,12 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Windows 打包（要在 Windows 上，Nuitka 不跨平台編）：
+打包（Nuitka 不跨平台，要在對應系統上跑）：
 
 ```bash
 pip install -e ".[build]"
-python scripts/build_windows.py       # → build/MSCJTool.exe
+python scripts/build_windows.py       # Windows → build/MSCJTool.exe
+python scripts/build_macos.py         # macOS   → build/MSCJTool.app (+ .zip)
 ```
 
 `cjtoolkit/codec.py` 負責純文字碼表與二進位辭典檔之間的編解碼，已逐位元對齊三個官方 `.spd` 樣本；有些格式約束一旦違反會讓輸入法卡死，都列在 [`docs/format-notes.md`](docs/format-notes.md)。遠端獲取（`fetch`）模組還在，暫時未接入 CLI / GUI。

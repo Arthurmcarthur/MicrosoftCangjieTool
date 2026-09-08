@@ -1,36 +1,63 @@
-name: Build Windows exe
+name: Build
 
 on:
   push:
     tags: ["v*", "[0-9]*"]   # v2.0.0 或 2.0.0 都認
-  workflow_dispatch:          # 平時手動觸發試 build，不每次 push 都跑（Windows runner 很貴）
+  workflow_dispatch:          # 平時手動觸發試 build，不每次 push 都跑
+
+env:
+  PYTHONUTF8: "1"             # runner 主控台預設非 UTF-8，Nuitka / 腳本會印中文
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
-    permissions:
-      contents: write   # 打 tag 時建 Release
-    env:
-      PYTHONUTF8: "1"    # 主控台預設 cp1252，Nuitka 與腳本會印中文
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - run: pip install -e ".[build]"
-
-      - name: Nuitka build
-        run: python scripts/build_windows.py
-
+      - run: python scripts/build_windows.py
       - uses: actions/upload-artifact@v4
         with:
-          name: MSCJTool-exe
+          name: MSCJTool-windows
           path: build/MSCJTool.exe
           if-no-files-found: error
 
-      - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/v')
+  macos:
+    runs-on: macos-latest      # Apple Silicon → 產出 arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[build]"
+      - run: python scripts/build_macos.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MSCJTool-macos
+          path: build/MSCJTool-macos.zip
+          if-no-files-found: error
+
+  release:
+    needs: [windows, macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" build/MSCJTool.exe --title "${{ github.ref_name }}" --generate-notes --draft
+        run: >
+          gh release create "${{ github.ref_name }}"
+          dist/MSCJTool.exe
+          dist/MSCJTool-macos.zip
+          --repo "${{ github.repository }}"
+          --title "${{ github.ref_name }}"
+          --generate-notes
+          --draft
