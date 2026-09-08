@@ -11,4 +11,4 @@
     fetch    從 URL / GitHub raw 取得 txt（暫未接入 CLI/GUI）
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"

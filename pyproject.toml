@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cjtoolkit"
-version = "2.0.0"
+version = "2.0.1"
 description = "微軟倉頡碼表工具：txt 碼表 → Lex/SDC 二進位、遠端獲取、安裝"
 readme = "README.md"
 requires-python = ">=3.10"
