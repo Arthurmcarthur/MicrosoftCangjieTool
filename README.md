@@ -181,7 +181,7 @@ python scripts/build_macos.py         # macOS   → build/MSCJTool.app (+ .zip)
 
 ## 致謝
 
-- [xionghuaidong](https://gitee.com/xionghuaidong)：寫了[微軟五筆碼表編輯器](https://gitee.com/gitwub/WubiTools)，開更換微軟碼表之先河，本項目的 v1 舊版受他很大啓發。
+- [xionghuaidong](https://gitee.com/xionghuaidong)：是[微軟五筆碼表編輯器](https://gitee.com/gitwub/WubiTools)的作者，開更換微軟碼表之先河，本項目的 v1 舊版受他很大啓發。
 - [mrhso](https://github.com/mrhso)：最早以 JavaScript 完成對 `ChtChangjieExt.lex` 的讀取，在他的基礎上，我才完全弄清該檔的碼表結構。
 
 ## 授權
