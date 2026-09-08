@@ -2,7 +2,7 @@
 
 用您自己的倉頡碼表替換 Windows 內建的「微軟倉頡」碼表。
 
-微軟倉頡的原廠碼表檔有許多訛誤：不少字用正確的倉頡碼打不出來，重碼字序也很不合理（例如「佑」排在「知」之前）。偏偏系統沒有提供更換碼表的選項，您是否為此十分苦惱？用本工具，只要準備一份您喜歡的純文字碼表（例如自行整理的 Cangjie 3 / Cangjie 5），就能轉成微軟倉頡的二進位辭典檔，直接裝進系統。
+微軟倉頡的原廠碼表檔有許多訛誤：不少字用正確的倉頡碼打不出來，重碼字序也很不合理（例如「佑」排在「知」之前）。偏偏系統沒有提供更換碼表的選項，您是否為此十分苦惱？用本工具，只要準備一份您喜歡的純文字碼表，就能轉成微軟倉頡的二進位辭典檔，直接裝進系統。
 
 ## 項目歷史與版本說明
 
@@ -32,15 +32,15 @@
 
 ### 下載打包版
 
-到 [Releases](../../releases) 下載（打 tag 後由 GitHub Actions 自動 build）：
+到 [Releases](../../releases) 下載：
 
-- **Windows**：`MSCJTool.exe`，單一檔免安裝。雙擊開圖形介面，或
-  `MSCJTool.exe --help` / `MSCJTool.exe build …` 走命令列。第一次啟動會解壓到
-  暫存資料夾、稍慢一下。
-- **macOS**：`MSCJTool-macos.zip`，解壓得 `MSCJTool.app`（Apple Silicon）。
-  沒做簽章 / 公證，第一次開要在「系統設定 → 隱私權與安全性」按「仍要打開」，
-  或 `xattr -dr com.apple.quarantine MSCJTool.app`。macOS 沒有微軟輸入法，
-  只能轉換 / 打包 / 驗證，辭典檔拿到 Windows 再安裝。
+- **Windows**：`MSCJTool.exe`，單一檔免安裝。雙擊可打開圖形介面。若希望使用命令列，可執行 
+  `MSCJTool.exe --help` / `MSCJTool.exe build …` 。初次啓動會解壓檔案到
+  暫存資料夾，可能稍慢。
+- **macOS**：`MSCJTool-macos.zip`，解壓可得 `MSCJTool.app`（Apple Silicon）。
+  由於沒有做簽章，第一次開要在「系統設定 → 隱私權與安全性」按「仍要打開」，
+  或在終端執行 `xattr -dr com.apple.quarantine MSCJTool.app`。因為 macOS 沒有微軟倉頡，
+  只支持轉換 / 打包 / 驗證功能，辭典檔要拿到 Windows 再安裝。
 
 ### 從原始碼執行（任何平台）
 
