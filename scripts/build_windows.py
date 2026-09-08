@@ -22,6 +22,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+# CI runner 的主控台常是 cp1252，直接 print 中文會 UnicodeEncodeError
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 ROOT = Path(__file__).resolve().parent.parent
 ICON = ROOT / "cjtoolkit" / "gui" / "cjico.ico"
 

@@ -10,6 +10,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write   # 打 tag 時建 Release
+    env:
+      PYTHONUTF8: "1"    # 主控台預設 cp1252，Nuitka 與腳本會印中文
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
