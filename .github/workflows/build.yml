@@ -2,8 +2,8 @@ name: Build Windows exe
 
 on:
   push:
-    tags: ["v*"]
-  workflow_dispatch:      # 平時手動觸發試 build，不每次 push 都跑（Windows runner 很貴）
+    tags: ["v*", "[0-9]*"]   # v2.0.0 或 2.0.0 都認
+  workflow_dispatch:          # 平時手動觸發試 build，不每次 push 都跑（Windows runner 很貴）
 
 jobs:
   build:
